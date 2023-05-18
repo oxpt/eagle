@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.rs'
+      
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  RUSTFLAGS: "-D warnings"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # for alsa and udev
+      - run: sudo apt-get update
+      - run: sudo apt-get install --no-install-recommends libasound2-dev libudev-dev -y
+
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          default: true
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: tools/check-ci.sh --no-cargo-deny
+
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          arguments: --all-features
+          command-arguments: --config configs/deny.toml
