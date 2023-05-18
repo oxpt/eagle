@@ -1,0 +1,29 @@
+# ignore all but allows all directories
+*
+!*/
+
+# ignore directories
+/target
+/node_modules
+
+# rust files
+!/crates/**/*.rs
+!/crates/**/Cargo.toml
+
+# other files
+!/.github/**/*.yml
+!/.github/**/*.json
+!/docs/**/*.md
+!/configs/**/*.toml
+!/tools/**/*.sh
+
+# specific files
+!/.gitattributes
+!/README.md
+!/LICENSE.md
+!/docs/LICENSE-*
+!/Cargo.toml
+!/Cargo.lock
+
+# global allow
+!.gitignore
