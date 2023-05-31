@@ -3,8 +3,7 @@
 🦅 A game engine for academic large-scale experiments.
 
 ![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg?style=flat)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/ryo33?color=ffc5cd&labelColor=2a4638)](https://github.com/sponsors/ryo33)
-[![GitHub Repo stars](https://img.shields.io/github/stars/Hihaheho/Desk?style=social&color=yellow)](https://github.com/oxpt/eagle)
+[![GitHub Repo stars](https://img.shields.io/github/stars/oxpt/eagle?style=social&color=yellow)](https://github.com/oxpt/eagle)
 
 ## Concepts
 
