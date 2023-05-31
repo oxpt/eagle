@@ -1,0 +1,17 @@
+[package]
+name = "eagle-cloudflare-workers"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+eagle-types = { workspace = true }
+worker = "= 0.0.16"
+futures = "0.3.21"
+uuid = { version = "1.3.3", features = ["v4", "js"] }
+serde = { version = "1.0.163", features = ["derive"] }
