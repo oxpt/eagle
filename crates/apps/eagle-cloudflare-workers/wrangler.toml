@@ -1,0 +1,5 @@
+name = "worker-rust"
+main = "../../../target/eagle-server/shim.mjs"
+
+[build]
+command	= "cargo install -q worker-build && worker-build --release"

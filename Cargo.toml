@@ -3,4 +3,11 @@
 members = [
     "crates/core/*",
     "crates/games/*",
+    "crates/apps/*",
 ]
+
+[workspace.dependencies]
+eagle-types = { path = "crates/core/eagle-types" }
+eagle-game = { path = "crates/games/eagle-game" }
+eagle = { path = "crates/core/eagle" }
+
