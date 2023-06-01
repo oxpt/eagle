@@ -1,9 +1,9 @@
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct GameId(pub Uuid);
+pub struct GameInstanceId(pub Uuid);
 
-impl GameId {
+impl GameInstanceId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
