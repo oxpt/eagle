@@ -192,13 +192,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
-name = "eagle"
-version = "0.1.0"
-dependencies = [
- "ultimatum",
-]
-
-[[package]]
 name = "eagle-cloudflare-workers"
 version = "0.1.0"
 dependencies = [
@@ -219,19 +212,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "eagle-server"
-version = "0.1.0"
-
-[[package]]
 name = "eagle-types"
 version = "0.1.0"
 dependencies = [
  "uuid",
 ]
-
-[[package]]
-name = "eagle-web-client"
-version = "0.1.0"
 
 [[package]]
 name = "erased-serde"

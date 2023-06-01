@@ -1,28 +1,33 @@
-pub mod system_state;
+pub mod game_context;
+pub mod server;
 
 use bevy_reflect::Reflect;
-use eagle_types::{ids::PlayerId, events::GameServerInput};
+use eagle_types::ids::PlayerId;
+use game_context::GameContext;
 use serde::{de::DeserializeOwned, Serialize};
-use system_state::SystemState;
 
-pub trait Game {
+pub trait Game: Sized {
     type Config: Serialize + DeserializeOwned + Reflect;
     type State: Serialize + DeserializeOwned;
     type Conductor: Client;
     type Player: Client;
 
+    fn name() -> &'static str;
+
     fn new(config: Self::Config) -> Self;
 
-    fn handle_input<T: SystemState>(
+    fn handle_conductor_event(
         &mut self,
-        system_state: &T,
-        input: GameServerInput<<Self::Conductor as Client>::ServerEvent, <Self::Player as Client>::ServerEvent>,
-    ) -> ServerOutput<<Self::Conductor as Client>::ClientEvent, <Self::Player as Client>::ClientEvent>;
-}
+        context: &mut impl GameContext<Self>,
+        event: <Self::Conductor as Client>::ServerEvent,
+    );
 
-pub struct ServerOutput<ConductorEvent, PlayerEvent> {
-    pub conductor_events: Vec<ConductorEvent>,
-    pub player_events: Vec<(PlayerId, PlayerEvent)>,
+    fn handle_player_event(
+        &mut self,
+        context: &mut impl GameContext<Self>,
+        player_id: PlayerId,
+        event: <Self::Player as Client>::ServerEvent,
+    );
 }
 
 pub trait Client {
