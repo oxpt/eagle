@@ -1,83 +1,40 @@
-use std::{collections::BTreeMap, sync::Arc};
-
+use eagle_game::server::{Channel, GameServer};
 use eagle_types::ids::{ClientId, PlayerId};
 
 use futures::{lock::Mutex, StreamExt};
-use serde::Deserialize;
 use uuid::Uuid;
 use worker::{WebSocket, *};
 
-pub struct GameState {
-    // A conductor can have multiple devices to manage
-    conductor_channels: Vec<Channel>,
-    // This must not HashMap, but it does not have to be BTreeMap
-    player_channels: BTreeMap<PlayerId, Vec<Channel>>,
-}
-
-struct Channel {
+struct WebSocketConnection {
     client_id: ClientId,
     websocket: WebSocket,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum ClientType {
-    Conductor,
-    Player(PlayerId),
-}
+impl Channel for WebSocketConnection {
+    type Error = worker::Error;
 
-#[derive(Debug, Clone, Deserialize)]
-struct ClientParams {
-    latest_received_server_event: Option<u32>,
-}
-
-impl GameState {
-    fn add_channel(&mut self, client_type: ClientType, channel: Channel) {
-        match client_type {
-            ClientType::Conductor => {
-                self.conductor_channels.push(channel);
-            }
-            ClientType::Player(player_id) => {
-                let channels = self.player_channels.entry(player_id).or_default();
-                channels.push(channel);
-            }
-        }
+    fn client_id(&self) -> ClientId {
+        self.client_id
     }
 
-    fn handle_message(&mut self, channel_type: ClientType, msg: MessageEvent) {
-        match channel_type {
-            ClientType::Conductor => {}
-            ClientType::Player(player_id) => {}
-        }
+    fn send<T: serde::Serialize>(&self, event: T) -> std::result::Result<(), Self::Error> {
+        todo!()
     }
 
-    fn remove_channel(&mut self, channel_type: ClientType, client_id: ClientId) {
-        match channel_type {
-            ClientType::Conductor => {
-                self.conductor_channels
-                    .retain(|channel| channel.client_id != client_id);
-            }
-            ClientType::Player(player_id) => {
-                if let Some(channels) = self.player_channels.get_mut(&player_id) {
-                    channels.retain(|channel| channel.client_id != client_id);
-                }
-            }
-        }
-    }
-
-    fn get_or_create_player_id(&mut self, client_id: ClientId) -> Option<PlayerId> {
+    fn close(&self) -> std::result::Result<(), Self::Error> {
         todo!()
     }
 }
 
 #[durable_object]
-pub struct Game {
+pub struct WorkerGame {
     state: State,
     env: Env,
-    game_state: Arc<Mutex<GameState>>,
+    game_state: Arc<Mutex<GameServer<WebSocketConnection>>>,
 }
 
 #[durable_object]
-impl DurableObject for Game {
+impl DurableObject for WorkerGame {
     fn new(state: State, env: Env) -> Self {
         Self {
             state,
@@ -134,8 +91,8 @@ impl DurableObject for Game {
     }
 }
 
-async fn websocket(
-    state: Arc<Mutex<GameState>>,
+async fn websocket<T: GameServer>(
+    state: Arc<Mutex<T>>,
     channel_type: ClientType,
     client_id: ClientId,
     client_params: ClientParams,

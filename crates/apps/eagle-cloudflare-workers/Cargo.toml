@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 eagle-types = { workspace = true }
+eagle-game = { workspace = true }
 
 worker = "= 0.0.16"
 futures = "0.3.21"
