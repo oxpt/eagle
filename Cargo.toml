@@ -3,14 +3,13 @@
 members = [
     "crates/core/*",
     "crates/games/*",
-    "crates/apps/*",
 ]
 
 [workspace.dependencies]
 eagle-types = { path = "crates/core/eagle-types" }
 eagle-game = { path = "crates/core/eagle-game" }
+eagle-server = { path = "crates/core/eagle-server" }
 
-serde = { version = "1.0", features = ["derive"] }
-uuid = { version = "1.3", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-
+uuid = { version = "1.3", features = ["v4", "serde", "js"] }
+serde = { version = "1.0", features = ["derive"] }

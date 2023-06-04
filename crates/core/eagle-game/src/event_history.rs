@@ -1,146 +1,171 @@
-use std::collections::BTreeMap;
+use std::{any::Any, collections::BTreeMap};
 
+use crate::{game::Game, game_handle::GameHandle};
 use eagle_types::ids::{GameInstanceId, PlayerId};
-use serde::{Deserialize, Serialize};
 
-use crate::{game::{Game, GameHandle}, serialized_event::SerializedEvent};
-
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default)]
 /// This stores server and client events in RON format.
 pub(crate) struct EventHistory {
     // This Any is a GameEventHistory<T> where T is the game type.
-    conductor: BTreeMap<GameInstanceId, EventLog>,
-    player: BTreeMap<PlayerId, BTreeMap<GameInstanceId, EventLog>>,
+    games: BTreeMap<GameInstanceId, Box<dyn Any>>,
 }
 
-#[derive(Default, Serialize, Deserialize)]
-struct EventLog {
-    pub client_events: Vec<String>,
-    pub server_events: Vec<String>,
+struct EventLog<T: Game> {
+    pub conductor_server_events: Vec<T::ConductorServerEvent>,
+    pub conductor_client_events: Vec<T::ConductorClientEvent>,
+    pub player_server_events: BTreeMap<PlayerId, Vec<T::PlayerServerEvent>>,
+    pub player_client_events: BTreeMap<PlayerId, Vec<T::PlayerClientEvent>>,
+}
+
+impl<T: Game> EventLog<T> {
+    fn new() -> Self {
+        Self {
+            conductor_server_events: Vec::new(),
+            conductor_client_events: Vec::new(),
+            player_server_events: BTreeMap::new(),
+            player_client_events: BTreeMap::new(),
+        }
+    }
 }
 
 impl EventHistory {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            games: Default::default()
+        }
     }
 
     pub fn log_conductor_server_event<T: Game>(
         &mut self,
-        game_handle: &GameHandle<T>,
+        game_handle: GameHandle<T>,
         event: T::ConductorServerEvent,
-    ) {
-        self.conductor
+    ) -> usize {
+        let vec = &mut self
+            .games
             .entry(game_handle.game_instance_id)
-            .or_default()
-            .server_events
-            .push(ron::ser::to_string(&event).unwrap());
+            .or_insert_with(|| Box::new(EventLog::<T>::new()))
+            .downcast_mut::<EventLog<T>>()
+            .unwrap()
+            .conductor_server_events;
+        vec.push(event);
+        vec.len() - 1
     }
 
     pub fn log_conductor_client_event<T: Game>(
         &mut self,
-        game_handle: &GameHandle<T>,
+        game_handle: GameHandle<T>,
         event: T::ConductorClientEvent,
-    ) {
-        self.conductor
+    ) -> usize {
+        let vec = &mut self
+            .games
             .entry(game_handle.game_instance_id)
-            .or_default()
-            .client_events
-            .push(ron::ser::to_string(&event).unwrap());
+            .or_insert_with(|| Box::new(EventLog::<T>::new()))
+            .downcast_mut::<EventLog<T>>()
+            .unwrap()
+            .conductor_client_events;
+        vec.push(event);
+        vec.len() - 1
     }
 
     pub fn log_player_server_event<T: Game>(
         &mut self,
-        game_handle: &GameHandle<T>,
+        game_handle: GameHandle<T>,
         player_id: PlayerId,
         event: T::PlayerServerEvent,
-    ) {
-        self.player
-            .entry(player_id)
-            .or_default()
+    ) -> usize {
+        let vec = &mut self
+            .games
             .entry(game_handle.game_instance_id)
-            .or_default()
-            .server_events
-            .push(ron::ser::to_string(&event).unwrap());
+            .or_insert_with(|| Box::new(EventLog::<T>::new()))
+            .downcast_mut::<EventLog<T>>()
+            .unwrap()
+            .player_server_events
+            .entry(player_id)
+            .or_insert_with(Vec::new);
+        vec.push(event);
+        vec.len() - 1
     }
 
     pub fn log_player_client_event<T: Game>(
         &mut self,
-        game_handle: &GameHandle<T>,
+        game_handle: GameHandle<T>,
         player_id: PlayerId,
         event: T::PlayerClientEvent,
-    ) {
-        self.player
-            .entry(player_id)
-            .or_default()
+    ) -> usize {
+        let vec = &mut self
+            .games
             .entry(game_handle.game_instance_id)
-            .or_default()
-            .client_events
-            .push(ron::ser::to_string(&event).unwrap());
-    }
-
-    pub fn conductor_server_events<T: Game>(
-        &self,
-        game_handle: &GameHandle<T>,
-    ) -> impl Iterator<Item = SerializedEvent<T::ConductorServerEvent>> {
-        self.conductor
-            .get(&game_handle.game_instance_id)
+            .or_insert_with(|| Box::new(EventLog::<T>::new()))
+            .downcast_mut::<EventLog<T>>()
             .unwrap()
-            .server_events
-            .iter()
-            .map(|event| SerializedEvent {
-                event,
-                deserialize: |event| ron::de::from_str(event).unwrap(),
-            })
+            .player_client_events
+            .entry(player_id)
+            .or_insert_with(Vec::new);
+        vec.push(event);
+        vec.len() - 1
     }
 
-    pub fn conductor_client_events<T: Game>(
+    pub fn get_conductor_server_events<T: Game>(
         &self,
-        game_handle: &GameHandle<T>,
-    ) -> impl Iterator<Item = SerializedEvent<T::ConductorClientEvent>> {
-        self.conductor
+        game_handle: GameHandle<T>,
+    ) -> impl Iterator<Item = &T::ConductorServerEvent> {
+        self.games
             .get(&game_handle.game_instance_id)
-            .unwrap()
-            .client_events
-            .iter()
-            .map(|event| SerializedEvent {
-                event,
-                deserialize: |event| ron::de::from_str(event).unwrap(),
+            .map(|any| {
+                any.downcast_ref::<EventLog<T>>()
+                    .unwrap()
+                    .conductor_server_events
+                    .iter()
             })
+            .unwrap_or_else(|| [].iter())
     }
 
-    pub fn player_server_events<T: Game>(
+    pub fn get_conductor_client_events<T: Game>(
         &self,
-        game_handle: &GameHandle<T>,
+        game_handle: GameHandle<T>,
+    ) -> impl Iterator<Item = &T::ConductorClientEvent> {
+        self.games
+            .get(&game_handle.game_instance_id)
+            .map(|any| {
+                any.downcast_ref::<EventLog<T>>()
+                    .unwrap()
+                    .conductor_client_events
+                    .iter()
+            })
+            .unwrap_or_else(|| [].iter())
+    }
+
+    pub fn get_player_server_events<'a, T: Game>(
+        &'a self,
+        game_handle: GameHandle<T>,
         player_id: PlayerId,
-    ) -> impl Iterator<Item = SerializedEvent<T::PlayerServerEvent>> {
-        self.player
-            .get(&player_id)
-            .unwrap()
+    ) -> impl Iterator<Item = &'a T::PlayerServerEvent> {
+        self.games
             .get(&game_handle.game_instance_id)
-            .unwrap()
-            .server_events
-            .iter()
-            .map(|event| SerializedEvent {
-                event,
-                deserialize: |event| ron::de::from_str(event).unwrap(),
+            .and_then(|any| {
+                any.downcast_ref::<EventLog<T>>()
+                    .unwrap()
+                    .player_server_events
+                    .get(&player_id)
+                    .map(|v| v.iter())
             })
+            .unwrap_or_else(|| [].iter())
     }
 
-    pub fn player_client_events<T: Game>(
-        &self,
-        game_handle: &GameHandle<T>,
+    pub fn get_player_client_events<'a, T: Game>(
+        &'a self,
+        game_handle: GameHandle<T>,
         player_id: PlayerId,
-    ) -> impl Iterator<Item = SerializedEvent<T::PlayerClientEvent>> {
-        self.player
-            .get(&player_id)
-            .unwrap()
+    ) -> impl Iterator<Item = &'a T::PlayerClientEvent> {
+        self.games
             .get(&game_handle.game_instance_id)
-            .unwrap()
-            .client_events
-            .iter()
-            .map(|event| SerializedEvent {
-                event,
-                deserialize: |event| ron::de::from_str(event).unwrap(),
+            .and_then(|any| {
+                any.downcast_ref::<EventLog<T>>()
+                    .unwrap()
+                    .player_client_events
+                    .get(&player_id)
+                    .map(|v| v.iter())
             })
+            .unwrap_or_else(|| [].iter())
     }
 }
