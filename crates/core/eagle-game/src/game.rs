@@ -1,39 +1,39 @@
-use eagle_types::ids::{PlayerId, GameInstanceId};
+use eagle_types::{ids::PlayerId, events::SystemEvent};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::room_state::RoomState;
+use crate::context::Context;
 
-pub trait Game: Sized + Serialize + DeserializeOwned {
-    type ConductorServerEvent: Serialize + DeserializeOwned;
-    type ConductorClientEvent: Serialize + DeserializeOwned;
-    type PlayerServerEvent: Serialize + DeserializeOwned;
-    type PlayerClientEvent: Serialize + DeserializeOwned;
-    type ConductorClient: Client<Event = Self::ConductorServerEvent>;
-    type PlayerClient: Client<Event = Self::PlayerServerEvent>;
+pub trait Game: Sized + Serialize + DeserializeOwned + 'static {
+    type Config: Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorServerEvent: Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorClientEvent: Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerServerEvent: Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerClientEvent: Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorClient: Client<Event = Self::ConductorServerEvent> + 'static;
+    type PlayerClient: Client<Event = Self::PlayerServerEvent> + 'static;
+
+    fn new(config: Self::Config) -> Self;
 
     fn name() -> &'static str;
 
-    fn handle_conductor_event(
-        &mut self,
-        context: &mut RoomState,
-        event: Self::ConductorClientEvent,
-    );
+    fn handle_conductor_event(&mut self, context: &mut Context<Self>, event: Self::ConductorClientEvent);
 
     fn handle_player_event(
         &mut self,
-        context: &mut RoomState,
+        context: &mut Context<Self>,
         player_id: PlayerId,
         event: Self::PlayerClientEvent,
+    );
+
+    fn handle_system_event(
+        &mut self,
+        context: &mut Context<Self>,
+        event: SystemEvent,
     );
 }
 
 pub trait Client {
-    type Event;
+    type Event: Clone + Serialize + DeserializeOwned + 'static;
+    fn new() -> Self;
     fn handle_server_event(&mut self, event: Self::Event);
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct GameHandle<T: Game> {
-    game: T,
-    pub game_instance_id: GameInstanceId,
 }

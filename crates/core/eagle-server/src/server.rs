@@ -1,14 +1,15 @@
+use eagle_game::Room;
 use eagle_types::{
     client::User,
     ids::{ClientId, PlayerId},
 };
 use serde::Deserializer;
 
-use crate::{channel::Channel, channels::Channels, room_state::RoomState};
+use crate::{channel::Channel, channels::Channels};
 
 pub struct GameServer<C: Channel> {
     channels: Channels<C>,
-    room_state: RoomState,
+    room_state: Room,
 }
 
 impl<T: Channel> GameServer<T> {
