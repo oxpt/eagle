@@ -1,26 +1,11 @@
-use eagle_game::{Game, GameHandle};
-use eagle_types::{events::SystemEvent, ids::PlayerId};
+use eagle_game::{Game, GameCommand};
 
 use crate::EffectOutcomes;
 
-pub trait Repository: Sized + 'static {
-    fn store_conductor_event<T: Game>(
+pub trait Repository<T: Game>: Sized + 'static {
+    fn store_command(
         &mut self,
-        handle: GameHandle<T>,
-        event: T::ConductorClientEvent,
+        command: GameCommand<T>,
         effect_outcomes: EffectOutcomes,
-    );
-    fn store_player_event<T: Game>(
-        &mut self,
-        handle: GameHandle<T>,
-        player_id: PlayerId,
-        event: T::PlayerClientEvent,
-        effect_outcomes: EffectOutcomes,
-    );
-    fn store_system_event<T: Game>(
-        &mut self,
-        handle: GameHandle<T>,
-        event: SystemEvent,
-        offect_outcomes: EffectOutcomes,
     );
 }

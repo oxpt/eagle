@@ -1,11 +1,20 @@
+use std::cell::RefCell;
+
 use chrono::{DateTime, Utc};
 use eagle_types::{
     client::{ClientState, User},
-    events::SystemEvent,
+    events::SystemCommand,
     ids::{GameInstanceId, PlayerId},
 };
 
-use crate::{context::Context, game::Game, game_handle::GameHandle};
+use crate::{
+    bubbled::{BubbledCommand, Inner},
+    context::Context,
+    events::GameCommand,
+    game::Game,
+    game_handle::GameHandle,
+    notify_history::NotifyHistory,
+};
 
 impl<T: Game> Context<'_, '_, T> {
     // clients
@@ -23,55 +32,22 @@ impl<T: Game> Context<'_, '_, T> {
 
     // history
 
-    pub fn all_conductor_client_events(&self) -> impl Iterator<Item = &T::ConductorClientEvent> {
-        self.event_history
-            .get_conductor_client_events(self.game_handle)
-    }
-    pub fn all_player_client_events(
-        &self,
-        player_id: PlayerId,
-    ) -> impl Iterator<Item = &T::PlayerClientEvent> {
-        self.event_history
-            .get_player_client_events(self.game_handle, player_id)
-    }
-    pub fn all_conductor_server_events(&self) -> impl Iterator<Item = &T::ConductorServerEvent> {
-        self.event_history
-            .get_conductor_server_events(self.game_handle)
-    }
-    pub fn all_player_server_events(
-        &self,
-        player_id: PlayerId,
-    ) -> impl Iterator<Item = &T::PlayerServerEvent> {
-        self.event_history
-            .get_player_server_events(self.game_handle, player_id)
-    }
-    pub fn all_system_events(&self) -> impl Iterator<Item = &SystemEvent> {
-        self.event_history.get_system_events(self.game_handle)
+    pub fn all_commands(&self) -> impl Iterator<Item = &GameCommand<T>> {
+        self.command_history.all_commands(self.game_handle)
     }
 
     // game output
 
-    pub fn push_conductor_server_event(&mut self, event: T::ConductorServerEvent) {
-        let index = self
-            .event_history
-            .log_conductor_server_event(self.game_handle, event.clone());
-        self.clients.send_server_event(
-            User::Conductor,
-            self.game_handle.game_instance_id,
-            index,
-            event,
-        )
+    pub fn push_conductor_notify(&mut self, notify: T::ConductorNotify) {
+        let index = self.notify_history.log_conductor_notify(notify.clone());
+        self.clients.send_notify(User::Conductor, index, notify);
     }
-    pub fn push_player_server_event(&mut self, player_id: PlayerId, event: T::PlayerServerEvent) {
-        let index =
-            self.event_history
-                .log_player_server_event(self.game_handle, player_id, event.clone());
-        self.clients.send_server_event(
-            User::Player(player_id),
-            self.game_handle.game_instance_id,
-            index,
-            event,
-        )
+    pub fn push_player_notify(&mut self, player_id: PlayerId, notify: T::PlayerNotify) {
+        let index = self
+            .notify_history
+            .log_player_notify(player_id, notify.clone());
+        self.clients
+            .send_notify(User::Player(player_id), index, notify);
     }
 
     // game management
@@ -88,16 +64,63 @@ impl<T: Game> Context<'_, '_, T> {
         &self,
         handle: GameHandle<G>,
     ) -> impl std::ops::Deref<Target = G> + '_ {
-        self.game_instances.get_game_instance(handle)
+        self.game_instances.get_game_instance(handle).borrow()
     }
-    /// Trigger a conductor client event for a given game instance. The event must be handled immediately
+
+    fn mutate_game<G: Game>(
+        &mut self,
+        handle: GameHandle<G>,
+        mutate: impl FnOnce(&mut Context<G>, &RefCell<G>),
+    ) {
+        let mut notifies = NotifyHistory::new();
+        let mut ctx = Context::new(
+            handle,
+            self.clients,
+            self.eff,
+            self.command_history,
+            &mut notifies,
+            self.game_instances,
+            self.rng,
+        );
+        let game = ctx.game_instances.get_game_instance_mut(handle);
+        mutate(&mut ctx, &game);
+        todo!("bubble up notifies")
+    }
+
+    /// Trigger a conductor command for a given game instance. The event must be handled immediately
     /// by the implementation. This means that the return values of other methods might be updated.
     pub fn trigger_conductor_client_event<G: Game>(
         &mut self,
         handle: GameHandle<G>,
-        event: G::ConductorClientEvent,
+        event: G::ConductorCommand,
     ) {
-        self.handle_conductor_event(handle, event);
+        todo!()
+    }
+
+    /// Trigger a system command for a given game instance. The event must be handled immediately
+    /// by the implementation. This means that the return values of other methods might be updated.
+    pub fn trigger_system_command<G: Game>(&mut self, handle: GameHandle<G>, event: SystemCommand) {
+        todo!()
+    }
+
+    // TODO: progagation
+
+    pub fn propagate<G: Game>(&mut self, bubbled: BubbledCommand<G>) {
+        let handle = GameHandle::<G>::new(bubbled.game_instance_id);
+        self.mutate_game(handle, |ctx, game| {
+            let mut game = game.borrow_mut();
+            match bubbled.inner {
+                Inner::ConductorCommand { command } => {
+                    ctx.command_history.log_conductor_command(handle, command.clone());
+                    game.handle_conductor_command(ctx, command);
+                }
+                Inner::PlayerCommand { player_id, command } => {
+                    ctx.command_history
+                        .log_player_command(handle, player_id, command.clone());
+                    game.handle_player_command(ctx, player_id, command);
+                }
+            }
+        });
     }
 
     /// other side effects

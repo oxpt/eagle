@@ -3,14 +3,19 @@ mod context;
 mod game_handle;
 mod room;
 mod clients;
-mod event_history;
+mod command_history;
 mod effectful;
 mod game_instances;
 mod eff_handler;
+mod events;
+mod bubbled;
+mod notify_history;
 
 pub use game::Game;
 pub use context::Context;
 pub use game_handle::GameHandle;
+pub use eagle_types::events::SystemCommand;
+pub use events::GameCommand;
 
 #[cfg(feature = "server")]
 mod server {

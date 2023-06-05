@@ -1,34 +1,34 @@
-use eagle_types::{ids::PlayerId, events::SystemEvent};
+use eagle_types::{ids::PlayerId, events::SystemCommand};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::context::Context;
 
-pub trait Game: Sized + Serialize + DeserializeOwned + 'static {
+pub trait Game: Sized + 'static {
     type Config: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorServerEvent: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorClientEvent: Clone + Serialize + DeserializeOwned + 'static;
-    type PlayerServerEvent: Clone + Serialize + DeserializeOwned + 'static;
-    type PlayerClientEvent: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorClient: Client<Event = Self::ConductorServerEvent> + 'static;
-    type PlayerClient: Client<Event = Self::PlayerServerEvent> + 'static;
+    type ConductorNotify: Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorCommand: Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerNotify: Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerCommand: Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorClient: Client<Event = Self::ConductorNotify> + 'static;
+    type PlayerClient: Client<Event = Self::PlayerNotify> + 'static;
 
     fn new(config: Self::Config) -> Self;
 
     fn name() -> &'static str;
 
-    fn handle_conductor_event(&mut self, context: &mut Context<Self>, event: Self::ConductorClientEvent);
+    fn handle_conductor_command(&mut self, context: &mut Context<Self>, command: Self::ConductorCommand);
 
-    fn handle_player_event(
+    fn handle_player_command(
         &mut self,
         context: &mut Context<Self>,
         player_id: PlayerId,
-        event: Self::PlayerClientEvent,
+        command: Self::PlayerCommand,
     );
 
-    fn handle_system_event(
+    fn handle_system_command(
         &mut self,
         context: &mut Context<Self>,
-        event: SystemEvent,
+        command: SystemCommand,
     );
 
     fn log_error(&mut self, error: anyhow::Error);

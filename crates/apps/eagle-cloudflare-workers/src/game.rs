@@ -4,7 +4,7 @@ use eagle_game::Room;
 use eagle_server::{Channel, Clients, GameServer};
 use eagle_types::{
     client::{ClientParams, User},
-    events::ServerEventIndex,
+    events::NotifyIndex,
     ids::{ClientId, GameInstanceId},
 };
 
@@ -29,7 +29,7 @@ impl Channel for WebSocketConnection {
     fn send<T: serde::Serialize>(
         &self,
         game_instance_id: GameInstanceId,
-        index: ServerEventIndex,
+        index: NotifyIndex,
         event: T,
     ) -> std::result::Result<(), Self::Error> {
         todo!()

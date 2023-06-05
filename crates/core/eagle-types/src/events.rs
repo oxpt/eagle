@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 use crate::ids::PlayerId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SystemEvent {
+pub enum SystemCommand {
     JoinPlayer(PlayerId),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ServerEventIndex(pub usize);
+pub struct NotifyIndex(pub usize);
 
-impl ServerEventIndex {
+impl NotifyIndex {
     pub fn from_len(len: usize) -> Self {
         Self(len - 1)
     }
@@ -21,16 +21,16 @@ impl ServerEventIndex {
         self.0 + 1
     }
 
-    pub fn next(self) -> ServerEventIndex {
-        ServerEventIndex(self.0 + 1)
+    pub fn next(self) -> NotifyIndex {
+        NotifyIndex(self.0 + 1)
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ClientEventIndex(usize);
+pub struct CommandIndex(usize);
 
-impl ClientEventIndex {
-    pub fn from_len_after_insert(len: usize) -> Self {
+impl CommandIndex {
+    pub fn from_len(len: usize) -> Self {
         Self(len - 1)
     }
 
@@ -62,15 +62,15 @@ mod server_event_index_test {
     #[test]
     fn is_next_of() {
         assert_eq!(
-            ClientEventIndex(1).is_next_of(ClientEventIndex(1)),
+            CommandIndex(1).is_next_of(CommandIndex(1)),
             IsNextOf::Yes
         );
         assert_eq!(
-            ClientEventIndex(1).is_next_of(ClientEventIndex(2)),
+            CommandIndex(1).is_next_of(CommandIndex(2)),
             IsNextOf::No
         );
         assert_eq!(
-            ClientEventIndex(3).is_next_of(ClientEventIndex(1)),
+            CommandIndex(3).is_next_of(CommandIndex(1)),
             IsNextOf::TooFarAhead
         );
     }
