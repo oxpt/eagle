@@ -29,4 +29,8 @@ impl<'a, T: Clone> Effectful<T> {
             result
         }
     }
+
+    pub fn outcomes(self) -> Vec<T> {
+        self.history
+    }
 }

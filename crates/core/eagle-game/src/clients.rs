@@ -2,16 +2,16 @@ use std::any::Any;
 
 use eagle_types::{
     client::{ClientState, User},
+    events::ServerEventIndex,
     ids::GameInstanceId,
 };
 use serde::Serialize;
 
-#[derive(Clone, Copy)]
 pub struct Clients<'a> {
-    pub inner: &'a dyn Any,
-    pub fn_get_client_states: fn(&'a dyn Any, User) -> Vec<ClientState>,
+    pub inner: &'a mut dyn Any,
+    pub fn_get_client_states: fn(&dyn Any, User) -> Vec<ClientState>,
     pub fn_send_server_event:
-        fn(&'a dyn Any, User, GameInstanceId, usize, &dyn erased_serde::Serialize),
+        fn(&mut dyn Any, User, GameInstanceId, ServerEventIndex, &dyn erased_serde::Serialize),
 }
 
 impl Clients<'_> {
@@ -19,10 +19,10 @@ impl Clients<'_> {
         (self.fn_get_client_states)(self.inner, user)
     }
     pub(crate) fn send_server_event<T: Serialize>(
-        &self,
+        &mut self,
         user: User,
         game_instance_id: GameInstanceId,
-        index: usize,
+        index: ServerEventIndex,
         event: T,
     ) {
         (self.fn_send_server_event)(self.inner, user, game_instance_id, index, &event);

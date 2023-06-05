@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::ids::PlayerId;
+use crate::{events::ServerEventIndex, ids::PlayerId};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum User {
@@ -10,11 +10,31 @@ pub enum User {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClientParams {
-    pub latest_received_server_event: Option<u32>,
+    pub latest_received_server_event: Option<ServerEventIndex>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ClientState {
-    pub alive: bool,
     pub last_successful_communication: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl ClientState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn update_last_successful_communication(
+        &mut self,
+        datetime: chrono::DateTime<chrono::Utc>,
+    ) {
+        self.last_successful_communication = Some(datetime);
+    }
+}
+
+impl Default for ClientState {
+    fn default() -> Self {
+        Self {
+            last_successful_communication: None,
+        }
+    }
 }

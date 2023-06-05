@@ -30,6 +30,8 @@ pub trait Game: Sized + Serialize + DeserializeOwned + 'static {
         context: &mut Context<Self>,
         event: SystemEvent,
     );
+
+    fn log_error(&mut self, error: anyhow::Error);
 }
 
 pub trait Client {
