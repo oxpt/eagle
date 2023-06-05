@@ -18,13 +18,12 @@ impl GameInstances {
     pub fn insert_game_instance<T: Game>(&mut self, handle: GameHandle<T>, game: T) {
         self.game_instances.insert(handle.game_instance_id, Rc::new(RefCell::new(game)));
     }
-    pub fn get_game_instance<T: Game>(&self, handle: GameHandle<T>) -> impl std::ops::Deref<Target = T> + '_ {
+    pub fn get_game_instance<T: Game>(&self, handle: GameHandle<T>) -> &RefCell<T> {
         self.game_instances
             .get(&handle.game_instance_id)
             .unwrap()
             .downcast_ref::<RefCell<T>>()
             .unwrap()
-            .borrow()
     }
     pub fn get_game_instance_mut<T: Game>(&mut self, handle: GameHandle<T>) -> Rc<RefCell<T>> {
         self.game_instances

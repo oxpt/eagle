@@ -1,65 +1,46 @@
-use eagle_game::{EffHandler, Game, GameHandle, Room};
+use eagle_game::{EffHandler, Game, GameCommand, GameHandle, Room};
 use eagle_types::{
     client::{ClientParams, User},
     errors::EagleError,
-    events::{ClientEventIndex, IsNextOf, SystemEvent},
-    ids::{ClientId, PlayerId},
+    events::{CommandIndex, IsNextOf, SystemCommand},
+    ids::{ClientId, GameInstanceId, PlayerId},
 };
 
 use crate::{channel::Channel, clients::Clients, repository::Repository, EffectOutcomes};
 
-pub struct GameServer<C: Channel> {
+pub struct GameServer<T: Game, C: Channel> {
     clients: Clients<C>,
-    room: Room,
+    room: Room<T>,
 }
 
-impl<C: Channel> GameServer<C> {
-    pub fn new(room: Room) -> Self {
+impl<T: Game, C: Channel> GameServer<T, C> {
+    pub fn new(room: Room<T>) -> Self {
         Self {
             clients: Clients::new(),
             room,
         }
     }
 
-    pub fn add_conductor_client<T: Game>(
-        &mut self,
-        handle: GameHandle<T>,
-        params: ClientParams,
-        channel: C,
-    ) {
+    pub fn add_conductor_client(&mut self, params: ClientParams, channel: C) {
         self.clients.add_client(User::Conductor, channel);
         if let Some(mut latest_index) = params.latest_received_server_event {
-            let events = self.room.get_conductor_server_events(handle);
+            let events = self.room.get_conductor_notifies();
             for event in events.skip(latest_index.skip()) {
                 latest_index = latest_index.next();
-                self.clients.send_server_event(
-                    User::Conductor,
-                    latest_index,
-                    handle.game_instance_id,
-                    event,
-                );
+                self.clients
+                    .send_server_event(User::Conductor, latest_index, event);
             }
         }
     }
 
-    pub fn add_player_client<T: Game>(
-        &mut self,
-        handle: GameHandle<T>,
-        player_id: PlayerId,
-        params: ClientParams,
-        channel: C,
-    ) {
+    pub fn add_player_client(&mut self, player_id: PlayerId, params: ClientParams, channel: C) {
         self.clients.add_client(User::Player(player_id), channel);
         if let Some(mut latest_index) = params.latest_received_server_event {
-            let events = self.room.get_player_server_events(handle, player_id);
+            let events = self.room.get_player_notifies(player_id);
             for event in events.skip(latest_index.skip()) {
                 latest_index = latest_index.next();
-                self.clients.send_server_event(
-                    User::Player(player_id),
-                    latest_index,
-                    handle.game_instance_id,
-                    event,
-                );
+                self.clients
+                    .send_server_event(User::Player(player_id), latest_index, event);
             }
         }
     }
@@ -68,134 +49,82 @@ impl<C: Channel> GameServer<C> {
         self.clients.remove_channel(user, client_id);
     }
 
-    pub fn handle_conductor_event<T: Game>(
+    pub fn handle_conductor_event(
         &mut self,
-        repository: &mut impl Repository,
+        repository: &mut impl Repository<T>,
         client_id: ClientId,
-        handle: GameHandle<T>,
-        index: ClientEventIndex,
-        event: T::ConductorClientEvent,
+        index: CommandIndex,
+        command: T::ConductorCommand,
     ) {
-        let server_side_index = self.room.current_conductor_client_event_index(handle);
-        match index.is_next_of(server_side_index) {
-            IsNextOf::Yes => (),
-            IsNextOf::No => return,
-            IsNextOf::TooFarAhead => {
-                self.room.log_error(
-                    handle,
-                    EagleError::ClientSendsClientEventWithTooAheadIndex {
-                        client_side_index: index,
-                        server_side_index,
-                        user: User::Conductor,
-                    }
-                    .into(),
-                );
-                return;
-            }
-        }
+        todo!("skip already received events");
         let mut eff = EffHandler::default();
-        self.room.handle_conductor_event(
-            &mut self.clients.to_ref(),
-            &mut eff,
-            handle,
-            event.clone(),
-        );
+        self.room
+            .handle_conductor_command(&mut self.clients.to_ref(), &mut eff, command.clone());
         let effect_outcomes = EffectOutcomes::from(eff);
         self.clients
             .update_last_successful_communication(User::Conductor, client_id);
-        repository.store_conductor_event(handle, event, effect_outcomes)
+        repository.store_command(GameCommand::ConductorCommand(command), effect_outcomes);
     }
 
-    pub fn handle_player_event<T: Game>(
+    pub fn handle_player_event(
         &mut self,
-        repository: &mut impl Repository,
+        repository: &mut impl Repository<T>,
         client_id: ClientId,
         handle: GameHandle<T>,
         player_id: PlayerId,
-        index: ClientEventIndex,
-        event: T::PlayerClientEvent,
+        index: CommandIndex,
+        command: T::PlayerCommand,
     ) {
-        let server_side_index = self
-            .room
-            .current_player_client_event_index(handle, player_id);
-        match index.is_next_of(server_side_index) {
-            IsNextOf::Yes => (),
-            IsNextOf::No => return,
-            IsNextOf::TooFarAhead => {
-                self.room.log_error(
-                    handle,
-                    EagleError::ClientSendsClientEventWithTooAheadIndex {
-                        client_side_index: index,
-                        server_side_index,
-                        user: User::Player(player_id),
-                    }
-                    .into(),
-                );
-            }
-        }
+        todo!("skip already received events");
         let mut eff = EffHandler::default();
-        self.room.handle_player_event(
+        self.room.handle_player_command(
             &mut self.clients.to_ref(),
             &mut eff,
-            handle,
             player_id,
-            event.clone(),
+            command.clone(),
         );
         let effect_outcomes = EffectOutcomes::from(eff);
         self.clients
             .update_last_successful_communication(User::Player(player_id), client_id);
-        repository.store_player_event(handle, player_id, event, effect_outcomes)
+        repository.store_command(GameCommand::PlayerCommand(player_id, command), effect_outcomes);
     }
 
-    pub fn handle_system_event<T: Game>(
+    pub fn handle_system_event(
         &mut self,
-        repository: &mut impl Repository,
-        handle: GameHandle<T>,
-        event: SystemEvent,
+        repository: &mut impl Repository<T>,
+        command: SystemCommand,
     ) {
         let mut eff = EffHandler::default();
         self.room
-            .handle_system_event(&mut self.clients.to_ref(), &mut eff, handle, event.clone());
+            .handle_system_command(&mut self.clients.to_ref(), &mut eff, command.clone());
         let effect_outcomes = EffectOutcomes::from(eff);
-        repository.store_system_event(handle, event, effect_outcomes)
+        repository.store_command(GameCommand::SystemCommand(command), effect_outcomes);
     }
 
-    pub fn replay_conductor_event<T: Game>(
+    pub fn replay_conductor_event(
         &mut self,
-        handle: GameHandle<T>,
-        event: T::ConductorClientEvent,
+        event: T::ConductorCommand,
         effect_outcomes: EffectOutcomes,
     ) {
         let mut eff = effect_outcomes.into();
         self.room
-            .handle_conductor_event(&mut self.clients.to_ref(), &mut eff, handle, event);
+            .handle_conductor_command(&mut self.clients.to_ref(), &mut eff, event);
     }
 
-    pub fn replay_player_event<T: Game>(
+    pub fn replay_player_event(
         &mut self,
-        handle: GameHandle<T>,
         player_id: PlayerId,
-        event: T::PlayerClientEvent,
-        effect_outcomes: EffectOutcomes,
-    ) {
-        let mut eff = effect_outcomes.into();
-        self.room.handle_player_event(
-            &mut self.clients.to_ref(),
-            &mut eff,
-            handle,
-            player_id,
-            event,
-        );
-    }
-
-    pub fn replay_system_event<T: Game>(
-        &mut self,
-        handle: GameHandle<T>,
-        event: SystemEvent,
+        event: T::PlayerCommand,
         effect_outcomes: EffectOutcomes,
     ) {
         let mut eff = effect_outcomes.into();
         self.room
-            .handle_system_event(&mut self.clients.to_ref(), &mut eff, handle, event);
+            .handle_player_command(&mut self.clients.to_ref(), &mut eff, player_id, event);
+    }
+
+    pub fn replay_system_event(&mut self, event: SystemCommand, effect_outcomes: EffectOutcomes) {
+        let mut eff = effect_outcomes.into();
+        self.room
+            .handle_system_command(&mut self.clients.to_ref(), &mut eff, event);
     }
 }

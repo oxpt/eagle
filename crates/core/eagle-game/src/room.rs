@@ -1,31 +1,39 @@
+use std::cell::RefCell;
+
 use eagle_types::{
-    events::{ClientEventIndex, SystemEvent},
+    events::{SystemCommand},
     ids::{GameInstanceId, PlayerId},
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 use crate::{
-    clients::Clients, event_history::EventHistory, game_instances::GameInstances, Context,
-    EffHandler, Game, GameHandle,
+    clients::Clients, command_history::CommandHistory, game_instances::GameInstances,
+    notify_history::NotifyHistory, Context, EffHandler, Game, GameHandle,
 };
 
-pub struct Room {
-    event_history: EventHistory,
+pub struct Room<T: Game> {
+    game_handle: GameHandle<T>,
+    command_history: CommandHistory,
+    notify_history: NotifyHistory<T>,
     game_instances: GameInstances,
     rng: ChaCha8Rng,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl Room {
-    pub fn new<T: Game>(
+impl<T: Game> Room<T> {
+    pub fn new(
         root_game_instance_id: GameInstanceId,
         config: T::Config,
         rand_seed: [u8; 32],
     ) -> Self {
         let mut room = Room {
-            event_history: EventHistory::new(),
+            game_handle: GameHandle::new(root_game_instance_id),
+            command_history: CommandHistory::new(),
+            notify_history: NotifyHistory::new(),
             game_instances: GameInstances::new(),
             rng: ChaCha8Rng::from_seed(rand_seed),
+            _phantom: std::marker::PhantomData,
         };
         let handle = GameHandle::new(root_game_instance_id);
         let game = T::new(config);
@@ -33,98 +41,75 @@ impl Room {
         room
     }
 
-    pub fn handle_conductor_event<T: Game>(
+    fn mutate_game(
         &mut self,
         clients: &mut Clients,
         eff: &mut EffHandler,
-        handle: GameHandle<T>,
-        event: T::ConductorClientEvent,
+        mutate: impl FnOnce(&mut Context<T>, &RefCell<T>),
     ) {
+        let game = &self.game_instances.get_game_instance_mut(self.game_handle);
+
         let mut ctx = Context::new(
-            handle,
+            self.game_handle,
             clients,
             eff,
-            &mut self.event_history,
+            &mut self.command_history,
+            &mut self.notify_history,
             &mut self.game_instances,
             &mut self.rng,
         );
-        ctx.handle_conductor_event(handle, event);
+
+        mutate(&mut ctx, game);
     }
 
-    pub fn handle_player_event<T: Game>(
+    pub fn handle_conductor_command(
         &mut self,
         clients: &mut Clients,
         eff: &mut EffHandler,
-        handle: GameHandle<T>,
-        player_id: PlayerId,
-        event: T::PlayerClientEvent,
+        command: T::ConductorCommand,
     ) {
-        let mut ctx = Context::new(
-            handle,
-            clients,
-            eff,
-            &mut self.event_history,
-            &mut self.game_instances,
-            &mut self.rng,
-        );
-        ctx.handle_player_event(handle, player_id, event);
+        self.command_history.log_conductor_command(self.game_handle, command.clone());
+        self.mutate_game(clients, eff, |ctx, game| {
+            game.borrow_mut().handle_conductor_command(ctx, command);
+        });
     }
 
-    pub fn handle_system_event<T: Game>(
+    pub fn handle_player_command(
         &mut self,
         clients: &mut Clients,
         eff: &mut EffHandler,
-        handle: GameHandle<T>,
-        event: SystemEvent,
+        player_id: PlayerId,
+        command: T::PlayerCommand,
     ) {
-        let mut ctx = Context::new(
-            handle,
-            clients,
-            eff,
-            &mut self.event_history,
-            &mut self.game_instances,
-            &mut self.rng,
-        );
-        ctx.handle_system_event(handle, event);
+        self.command_history
+            .log_player_command(self.game_handle, player_id, command.clone());
+        self.mutate_game(clients, eff, |ctx, game| {
+            game.borrow_mut()
+                .handle_player_command(ctx, player_id, command);
+        });
     }
 
-    pub fn log_error<T: Game>(&mut self, handle: GameHandle<T>, error: anyhow::Error) {
-        self.game_instances
-            .get_game_instance_mut(handle)
-            .borrow_mut()
-            .log_error(error.into());
-    }
-
-    pub fn get_conductor_server_events<T: Game>(
+    pub fn handle_system_command(
         &mut self,
-        handle: GameHandle<T>,
-    ) -> impl Iterator<Item = &T::ConductorServerEvent> {
-        self.event_history.get_conductor_server_events(handle)
+        clients: &mut Clients,
+        eff: &mut EffHandler,
+        event: SystemCommand,
+    ) {
+        self.command_history
+            .log_system_command(self.game_handle, event.clone());
+        self.mutate_game(clients, eff, |ctx, game| {
+            game.borrow_mut().handle_system_command(ctx, event);
+        });
     }
 
-    pub fn get_player_server_events<T: Game>(
+    pub fn get_conductor_notifies(&mut self) -> impl Iterator<Item = &T::ConductorNotify> {
+        self.notify_history.get_conductor_notifies()
+    }
+
+    pub fn get_player_notifies(
         &mut self,
-        handle: GameHandle<T>,
         player_id: PlayerId,
-    ) -> impl Iterator<Item = &T::PlayerServerEvent> {
-        self.event_history
-            .get_player_server_events(handle, player_id)
-    }
-
-    pub fn current_conductor_client_event_index<T: Game>(
-        &self,
-        handle: GameHandle<T>,
-    ) -> ClientEventIndex {
-        self.event_history
-            .current_conductor_client_event_index(handle)
-    }
-
-    pub fn current_player_client_event_index<T: Game>(
-        &self,
-        handle: GameHandle<T>,
-        player_id: PlayerId,
-    ) -> ClientEventIndex {
-        self.event_history
-            .current_player_client_event_index(handle, player_id)
+    ) -> impl Iterator<Item = &T::PlayerNotify> {
+        self.notify_history.get_player_notifies(player_id)
     }
 }

@@ -1,6 +1,6 @@
 use eagle_types::{
     client::ClientState,
-    ids::{ClientId, GameInstanceId}, events::ServerEventIndex,
+    ids::{ClientId}, events::NotifyIndex,
 };
 use serde::Serialize;
 
@@ -10,8 +10,7 @@ pub trait Channel: 'static {
     fn client_id(&self) -> ClientId;
     fn send<T: Serialize>(
         &self,
-        game_instance_id: GameInstanceId,
-        index: ServerEventIndex,
+        index: NotifyIndex,
         event: T,
     ) -> Result<(), Self::Error>;
     fn close(&self) -> Result<(), Self::Error>;
