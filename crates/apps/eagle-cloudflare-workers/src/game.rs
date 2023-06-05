@@ -1,5 +1,12 @@
-use eagle_game::server::{Channel, GameServer};
-use eagle_types::ids::{ClientId, PlayerId};
+use std::sync::Arc;
+
+use eagle_game::Room;
+use eagle_server::{Channel, Clients, GameServer};
+use eagle_types::{
+    client::{ClientParams, User},
+    events::ServerEventIndex,
+    ids::{ClientId, GameInstanceId},
+};
 
 use futures::{lock::Mutex, StreamExt};
 use uuid::Uuid;
@@ -10,6 +17,8 @@ struct WebSocketConnection {
     websocket: WebSocket,
 }
 
+type GameState = Arc<Mutex<GameServer<WebSocketConnection>>>;
+
 impl Channel for WebSocketConnection {
     type Error = worker::Error;
 
@@ -17,32 +26,37 @@ impl Channel for WebSocketConnection {
         self.client_id
     }
 
-    fn send<T: serde::Serialize>(&self, event: T) -> std::result::Result<(), Self::Error> {
+    fn send<T: serde::Serialize>(
+        &self,
+        game_instance_id: GameInstanceId,
+        index: ServerEventIndex,
+        event: T,
+    ) -> std::result::Result<(), Self::Error> {
         todo!()
     }
 
     fn close(&self) -> std::result::Result<(), Self::Error> {
         todo!()
     }
+
+    fn client_state(&self) -> eagle_types::client::ClientState {
+        todo!()
+    }
 }
 
-#[durable_object]
-pub struct WorkerGame {
+pub struct WorkerGame<T: Game> {
     state: State,
     env: Env,
-    game_state: Arc<Mutex<GameServer<WebSocketConnection>>>,
+    game_state: Arc<Mutex<GameState>>,
 }
 
-#[durable_object]
-impl DurableObject for WorkerGame {
-    fn new(state: State, env: Env) -> Self {
+impl <T: Game> WorkerGame<T> {
+    pub fn new(state: State, env: Env) -> Self {
+        let room = Room::new(todo!(), todo!(), todo!());
         Self {
             state,
             env,
-            game_state: Arc::new(Mutex::new(GameState {
-                conductor_channels: Default::default(),
-                player_channels: Default::default(),
-            })),
+            game_state: Arc::new(Mutex::new(GameServer::new(room))),
         }
     }
 
@@ -64,13 +78,7 @@ impl DurableObject for WorkerGame {
                 let client_id = get_client_id(&ctx)?;
                 let params = get_client_params(&mut req).await?;
                 if let Some(player_id) = ctx.data.lock().await.get_or_create_player_id(client_id) {
-                    websocket(
-                        ctx.data.clone(),
-                        ClientType::Player(player_id),
-                        client_id,
-                        params,
-                    )
-                    .await
+                    websocket(ctx.data.clone(), User::Player(player_id), client_id, params).await
                 } else {
                     Response::error("This Client ID cannot to be connected any player.", 403)
                 }
@@ -78,34 +86,36 @@ impl DurableObject for WorkerGame {
             .get_async("/conduct/:client_id", |mut req, ctx| async move {
                 let client_id = get_client_id(&ctx)?;
                 let params = get_client_params(&mut req).await?;
-                websocket(
-                    ctx.data.clone(),
-                    ClientType::Conductor,
-                    client_id,
-                    params,
-                )
-                .await
+                websocket(ctx.data.clone(), ClientType::Conductor, client_id, params).await
             })
             .run(req, self.env.clone().into())
             .await
     }
 }
 
-async fn websocket<T: GameServer>(
-    state: Arc<Mutex<T>>,
-    channel_type: ClientType,
+async fn websocket(
+    state: GameState,
+    user: User,
     client_id: ClientId,
     client_params: ClientParams,
 ) -> Result<Response> {
     let WebSocketPair { client, server } = WebSocketPair::new()?;
 
-    state.lock().await.add_channel(
-        channel_type,
+    let game_server = state.lock().await;
+
+    match user {
+        User::Conductor => {
+            game_server.lock
+    game_server.add_conductor_client(
         Channel {
             client_id,
             websocket: server.clone(),
         },
     );
+        },
+            User::Player(player_id) =>{
+            },
+    }
 
     server.accept()?;
 

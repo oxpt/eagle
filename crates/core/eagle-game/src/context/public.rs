@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
 use eagle_types::{
     client::{ClientState, User},
+    events::SystemEvent,
     ids::{GameInstanceId, PlayerId},
 };
 
 use crate::{context::Context, game::Game, game_handle::GameHandle};
 
-impl<T: Game> Context<'_, '_, '_, T> {
+impl<T: Game> Context<'_, '_, T> {
     // clients
 
     pub fn get_conductor_clients(&mut self) -> Vec<ClientState> {
@@ -43,6 +44,9 @@ impl<T: Game> Context<'_, '_, '_, T> {
     ) -> impl Iterator<Item = &T::PlayerServerEvent> {
         self.event_history
             .get_player_server_events(self.game_handle, player_id)
+    }
+    pub fn all_system_events(&self) -> impl Iterator<Item = &SystemEvent> {
+        self.event_history.get_system_events(self.game_handle)
     }
 
     // game output

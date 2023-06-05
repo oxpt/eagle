@@ -2,6 +2,10 @@
 name = "eagle-server"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A game engine for academic large-scale experiments."
+repository = "https://github.com/eagle/eagle"
+readme = "../../../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,3 +14,4 @@ eagle-types = { workspace = true }
 eagle-game = { workspace = true, features = ["server"] }
 
 serde = { workspace = true }
+chrono = { workspace = true }

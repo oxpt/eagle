@@ -1,4 +1,4 @@
-use eagle_types::ids::PlayerId;
+use eagle_types::{ids::PlayerId, events::SystemEvent};
 use rand_chacha::ChaCha8Rng;
 
 use crate::{
@@ -8,15 +8,15 @@ use crate::{
 
 use super::EffHandler;
 
-impl<T: Game> Context<'_, '_, '_, T> {
-    pub(crate) fn new<'a, 'clients, 'eff>(
+impl<T: Game> Context<'_, '_, T> {
+    pub(crate) fn new<'a, 'clients>(
         game_handle: GameHandle<T>,
-        clients: &'a Clients<'clients>,
-        eff: &'a mut EffHandler<'eff>,
+        clients: &'a mut Clients<'clients>,
+        eff: &'a mut EffHandler,
         event_history: &'a mut EventHistory,
         game_instances: &'a mut GameInstances,
         rng: &'a mut ChaCha8Rng,
-    ) -> Context<'a, 'clients, 'eff, T> {
+    ) -> Context<'a, 'clients, T> {
         Context {
             game_handle,
             clients,
@@ -69,5 +69,26 @@ impl<T: Game> Context<'_, '_, '_, T> {
         // cyclic-reference among games.
         game.borrow_mut()
             .handle_player_event(&mut ctx, player_id, event);
+    }
+
+    pub(crate) fn handle_system_event<S: Game>(
+        &mut self,
+        handle: GameHandle<S>,
+        event: SystemEvent,
+    ) {
+        self.event_history
+            .log_system_event(handle, event.clone());
+        let mut ctx = Context::new(
+            handle,
+            self.clients,
+            self.eff,
+            self.event_history,
+            self.game_instances,
+            self.rng,
+        );
+        let game = ctx.game_instances.get_game_instance_mut(handle);
+        // This does not panic because cargo asserts that the game cannot be accessed elsewhere by self-reference or
+        // cyclic-reference among games.
+        game.borrow_mut().handle_system_event(&mut ctx, event);
     }
 }
