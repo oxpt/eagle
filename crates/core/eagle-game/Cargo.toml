@@ -7,10 +7,6 @@ description = "A game engine for academic large-scale experiments."
 repository = "https://github.com/eagle/eagle"
 readme = "../../../README.md"
 
-[features]
-default = []
-server = []
-
 [dependencies]
 eagle-types = { workspace = true }
 

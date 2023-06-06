@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use chrono::{DateTime, Utc};
 use eagle_types::{
     client::{ClientState, User},
@@ -8,7 +6,7 @@ use eagle_types::{
 };
 
 use crate::{
-    bubbled::{BubbledCommand, Inner},
+    bubble::{CommandBubble, InnerCommandBubble, InnerNotifyBubble, NotifyBubble},
     context::Context,
     events::GameCommand,
     game::Game,
@@ -70,8 +68,11 @@ impl<T: Game> Context<'_, '_, T> {
     fn mutate_game<G: Game>(
         &mut self,
         handle: GameHandle<G>,
-        mutate: impl FnOnce(&mut Context<G>, &RefCell<G>),
-    ) {
+        mutate: impl FnOnce(&mut Context<G>, &mut G),
+    ) where
+        T::ConductorNotify: From<NotifyBubble<G>>,
+        T::PlayerNotify: From<NotifyBubble<G>>,
+    {
         let mut notifies = NotifyHistory::new();
         let mut ctx = Context::new(
             handle,
@@ -83,8 +84,24 @@ impl<T: Game> Context<'_, '_, T> {
             self.rng,
         );
         let game = ctx.game_instances.get_game_instance_mut(handle);
-        mutate(&mut ctx, &game);
-        todo!("bubble up notifies")
+        mutate(&mut ctx, &mut game.borrow_mut());
+        let NotifyHistory { conductor, players } = notifies;
+        for notify in conductor {
+            let bubble = NotifyBubble::<G> {
+                game_instance_id: handle.game_instance_id,
+                inner: InnerNotifyBubble::ConductorNotify { notify },
+            };
+            self.push_conductor_notify(bubble.into());
+        }
+        for (player_id, notifies) in players {
+            for notify in notifies {
+                let bubble = NotifyBubble::<G> {
+                    game_instance_id: handle.game_instance_id,
+                    inner: InnerNotifyBubble::PlayerNotify { player_id, notify },
+                };
+                self.push_player_notify(player_id, bubble.into());
+            }
+        }
     }
 
     /// Trigger a conductor command for a given game instance. The event must be handled immediately
@@ -93,32 +110,57 @@ impl<T: Game> Context<'_, '_, T> {
         &mut self,
         handle: GameHandle<G>,
         event: G::ConductorCommand,
-    ) {
-        todo!()
+    ) where
+        T::ConductorNotify: From<NotifyBubble<G>>,
+        T::PlayerNotify: From<NotifyBubble<G>>,
+    {
+        self.mutate_game(handle, |ctx, game| {
+            ctx.handle_conductor_command(handle, game, event)
+        });
+    }
+
+    /// Trigger a player command for a given game instance. The event must be handled immediately
+    /// by the implementation. This means that the return values of other methods might be updated.
+    pub fn trigger_player_client_event<G: Game>(
+        &mut self,
+        handle: GameHandle<G>,
+        player_id: PlayerId,
+        event: G::PlayerCommand,
+    ) where
+        T::ConductorNotify: From<NotifyBubble<G>>,
+        T::PlayerNotify: From<NotifyBubble<G>>,
+    {
+        self.mutate_game(handle, |ctx, game| {
+            ctx.handle_player_command(handle, game, player_id, event)
+        });
     }
 
     /// Trigger a system command for a given game instance. The event must be handled immediately
     /// by the implementation. This means that the return values of other methods might be updated.
-    pub fn trigger_system_command<G: Game>(&mut self, handle: GameHandle<G>, event: SystemCommand) {
-        todo!()
+    pub fn trigger_system_command<G: Game>(&mut self, handle: GameHandle<G>, event: SystemCommand)
+    where
+        T::ConductorNotify: From<NotifyBubble<G>>,
+        T::PlayerNotify: From<NotifyBubble<G>>,
+    {
+        self.mutate_game(handle, |ctx, game| {
+            ctx.handle_system_command(handle, game, event)
+        });
     }
 
-    // TODO: progagation
-
-    pub fn propagate<G: Game>(&mut self, bubbled: BubbledCommand<G>) {
+    pub fn propagate<G: Game>(&mut self, bubbled: CommandBubble<G>)
+    where
+        T::ConductorNotify: From<NotifyBubble<G>>,
+        T::PlayerNotify: From<NotifyBubble<G>>,
+    {
         let handle = GameHandle::<G>::new(bubbled.game_instance_id);
-        self.mutate_game(handle, |ctx, game| {
-            let mut game = game.borrow_mut();
-            match bubbled.inner {
-                Inner::ConductorCommand { command } => {
-                    ctx.command_history.log_conductor_command(handle, command.clone());
-                    game.handle_conductor_command(ctx, command);
-                }
-                Inner::PlayerCommand { player_id, command } => {
-                    ctx.command_history
-                        .log_player_command(handle, player_id, command.clone());
-                    game.handle_player_command(ctx, player_id, command);
-                }
+        self.mutate_game(handle, |ctx, game| match bubbled.inner {
+            InnerCommandBubble::ConductorCommand { command } => {
+                ctx.handle_conductor_command(handle, game, command)
+            }
+            InnerCommandBubble::PlayerCommand { player_id, command } => {
+                ctx.command_history
+                    .log_player_command(handle, player_id, command.clone());
+                game.handle_player_command(ctx, player_id, command);
             }
         });
     }

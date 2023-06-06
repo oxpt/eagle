@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, any::Any, cell::RefCell, rc::Rc};
 
 use eagle_types::ids::GameInstanceId;
 
-use crate::{GameHandle, Game};
+use crate::{game_handle::GameHandle, game::Game};
 
 #[derive(Default)]
 pub(crate) struct GameInstances {

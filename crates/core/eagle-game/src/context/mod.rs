@@ -1,15 +1,15 @@
 mod public;
+mod private;
 
 use rand_chacha::ChaCha8Rng;
 
 use crate::{
-    clients::Clients, command_history::CommandHistory, game_instances::GameInstances, EffHandler, Game,
-    GameHandle, notify_history::NotifyHistory,
+    clients::ClientsRef, command_history::CommandHistory, game_instances::GameInstances, notify_history::NotifyHistory, prelude::GameHandle, eff_handler::EffHandler, game::Game,
 };
 
 pub struct Context<'a, 'client, T: Game> {
     game_handle: GameHandle<T>,
-    clients: &'a mut Clients<'client>,
+    clients: &'a mut ClientsRef<'client>,
     eff: &'a mut EffHandler,
     command_history: &'a mut CommandHistory,
     notify_history: &'a mut NotifyHistory<T>,
@@ -20,7 +20,7 @@ pub struct Context<'a, 'client, T: Game> {
 impl<T: Game> Context<'_, '_, T> {
     pub(crate) fn new<'a, 'clients>(
         game_handle: GameHandle<T>,
-        clients: &'a mut Clients<'clients>,
+        clients: &'a mut ClientsRef<'clients>,
         eff: &'a mut EffHandler,
         command_history: &'a mut CommandHistory,
         notify_history: &'a mut NotifyHistory<T>,

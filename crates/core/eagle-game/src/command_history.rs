@@ -2,7 +2,7 @@ use std::{any::Any, collections::BTreeMap};
 
 use crate::{events::GameCommand, game::Game, game_handle::GameHandle};
 use eagle_types::{
-    events::{SystemCommand},
+    events::SystemCommand,
     ids::{GameInstanceId, PlayerId},
 };
 

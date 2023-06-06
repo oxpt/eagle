@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use chrono::Utc;
-use eagle_game::ClientsRef;
+use eagle_game::clients::ClientsRef;
 use eagle_types::{
     client::{ClientState, User},
     events::NotifyIndex,

@@ -11,7 +11,7 @@ pub struct GameHandle<T: Game> {
 }
 
 impl <T: Game> GameHandle<T> {
-    pub fn new(game_instance_id: GameInstanceId) -> Self {
+    pub(crate) fn new(game_instance_id: GameInstanceId) -> Self {
         Self {
             game_instance_id,
             phantom: PhantomData,
