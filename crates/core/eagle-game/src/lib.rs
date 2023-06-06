@@ -14,7 +14,7 @@ pub mod room;
 pub mod prelude {
     pub use crate::context::Context;
     pub use crate::events::GameCommand;
-    pub use crate::game::Game;
+    pub use crate::game::{Game, Conductor, Frontend};
     pub use crate::game_handle::GameHandle;
     pub use crate::bubble::{CommandBubble, NotifyBubble};
     pub use eagle_types::events::SystemCommand;
