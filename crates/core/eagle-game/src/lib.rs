@@ -1,28 +1,23 @@
-mod game;
-mod context;
-mod game_handle;
-mod room;
-mod clients;
+pub mod bubble;
+pub mod clients;
 mod command_history;
-mod effectful;
+pub mod context;
+pub mod eff_handler;
+pub mod effectful;
+pub mod events;
+pub mod game;
+pub mod game_handle;
 mod game_instances;
-mod eff_handler;
-mod events;
-mod bubbled;
 mod notify_history;
+pub mod room;
 
-pub use game::Game;
-pub use context::Context;
-pub use game_handle::GameHandle;
-pub use eagle_types::events::SystemCommand;
-pub use events::GameCommand;
-
-#[cfg(feature = "server")]
-mod server {
-    pub use crate::room::Room;
-    pub use crate::eff_handler::EffHandler;
-    pub use crate::effectful::Effectful;
-    pub use crate::clients::Clients as ClientsRef;
+pub mod prelude {
+    pub use crate::context::Context;
+    pub use crate::events::GameCommand;
+    pub use crate::game::Game;
+    pub use crate::game_handle::GameHandle;
+    pub use crate::bubble::{CommandBubble, NotifyBubble};
+    pub use eagle_types::events::SystemCommand;
+    pub type Map<K, V> = std::collections::BTreeMap<K, V>;
+    pub type Set<T> = std::collections::BTreeSet<T>;
 }
-#[cfg(feature = "server")]
-pub use server::*;

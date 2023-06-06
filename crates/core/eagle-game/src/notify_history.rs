@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 
 use eagle_types::{events::NotifyIndex, ids::PlayerId};
 
-use crate::Game;
+use crate::game::Game;
 
 pub(crate) struct NotifyHistory<T: Game> {
     /// Used to re-send events to new clients or reconected clients.
     // Any is Notifies<ConductorNotify> or Notifies<PlayerNotify>
-    conductor: Vec<T::ConductorNotify>,
-    players: BTreeMap<PlayerId, Vec<T::PlayerNotify>>,
+    pub conductor: Vec<T::ConductorNotify>,
+    pub players: BTreeMap<PlayerId, Vec<T::PlayerNotify>>,
 }
 
 impl<T: Game> NotifyHistory<T> {

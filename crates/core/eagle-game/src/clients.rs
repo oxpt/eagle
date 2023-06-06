@@ -6,13 +6,13 @@ use eagle_types::{
 };
 use serde::Serialize;
 
-pub struct Clients<'a> {
+pub struct ClientsRef<'a> {
     pub inner: &'a mut dyn Any,
     pub fn_get_client_states: fn(&dyn Any, User) -> Vec<ClientState>,
     pub fn_send_server_event: fn(&mut dyn Any, User, NotifyIndex, &dyn erased_serde::Serialize),
 }
 
-impl Clients<'_> {
+impl ClientsRef<'_> {
     pub(crate) fn get_client_states(&self, user: User) -> Vec<ClientState> {
         (self.fn_get_client_states)(self.inner, user)
     }

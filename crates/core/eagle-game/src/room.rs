@@ -1,15 +1,14 @@
-use std::cell::RefCell;
-
 use eagle_types::{
-    events::{SystemCommand},
+    events::SystemCommand,
     ids::{GameInstanceId, PlayerId},
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 use crate::{
-    clients::Clients, command_history::CommandHistory, game_instances::GameInstances,
-    notify_history::NotifyHistory, Context, EffHandler, Game, GameHandle,
+    clients::ClientsRef, command_history::CommandHistory, context::Context, eff_handler::EffHandler,
+    game::Game, game_handle::GameHandle, game_instances::GameInstances,
+    notify_history::NotifyHistory,
 };
 
 pub struct Room<T: Game> {
@@ -43,11 +42,11 @@ impl<T: Game> Room<T> {
 
     fn mutate_game(
         &mut self,
-        clients: &mut Clients,
+        clients: &mut ClientsRef,
         eff: &mut EffHandler,
-        mutate: impl FnOnce(&mut Context<T>, &RefCell<T>),
+        mutate: impl FnOnce(&mut Context<T>, &mut T),
     ) {
-        let game = &self.game_instances.get_game_instance_mut(self.game_handle);
+        let game = self.game_instances.get_game_instance_mut(self.game_handle);
 
         let mut ctx = Context::new(
             self.game_handle,
@@ -59,46 +58,43 @@ impl<T: Game> Room<T> {
             &mut self.rng,
         );
 
-        mutate(&mut ctx, game);
+        mutate(&mut ctx, &mut game.borrow_mut());
     }
 
     pub fn handle_conductor_command(
         &mut self,
-        clients: &mut Clients,
+        clients: &mut ClientsRef,
         eff: &mut EffHandler,
         command: T::ConductorCommand,
     ) {
-        self.command_history.log_conductor_command(self.game_handle, command.clone());
+        let handle = self.game_handle;
         self.mutate_game(clients, eff, |ctx, game| {
-            game.borrow_mut().handle_conductor_command(ctx, command);
+            ctx.handle_conductor_command(handle, game, command);
         });
     }
 
     pub fn handle_player_command(
         &mut self,
-        clients: &mut Clients,
+        clients: &mut ClientsRef,
         eff: &mut EffHandler,
         player_id: PlayerId,
         command: T::PlayerCommand,
     ) {
-        self.command_history
-            .log_player_command(self.game_handle, player_id, command.clone());
+        let handle = self.game_handle;
         self.mutate_game(clients, eff, |ctx, game| {
-            game.borrow_mut()
-                .handle_player_command(ctx, player_id, command);
+            ctx.handle_player_command(handle, game, player_id, command);
         });
     }
 
     pub fn handle_system_command(
         &mut self,
-        clients: &mut Clients,
+        clients: &mut ClientsRef,
         eff: &mut EffHandler,
-        event: SystemCommand,
+        command: SystemCommand,
     ) {
-        self.command_history
-            .log_system_command(self.game_handle, event.clone());
+        let handle = self.game_handle;
         self.mutate_game(clients, eff, |ctx, game| {
-            game.borrow_mut().handle_system_command(ctx, event);
+            ctx.handle_system_command(handle, game, command);
         });
     }
 

@@ -11,7 +11,7 @@ readme = "../../../README.md"
 
 [dependencies]
 eagle-types = { workspace = true }
-eagle-game = { workspace = true, features = ["server"] }
+eagle-game = { workspace = true }
 
 serde = { workspace = true }
 chrono = { workspace = true }

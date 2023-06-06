@@ -1,7 +1,7 @@
 use eagle_types::{ids::PlayerId, events::SystemCommand};
 use serde::{Serialize, Deserialize};
 
-use crate::Game;
+use crate::game::Game;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameCommand<T: Game> {

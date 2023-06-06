@@ -1,4 +1,4 @@
-use eagle_game::{EffHandler, Effectful};
+use eagle_game::{effectful::Effectful, eff_handler::EffHandler};
 use eagle_types::{client::ClientState, ids::GameInstanceId};
 use serde::{Deserialize, Serialize};
 
