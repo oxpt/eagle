@@ -9,8 +9,8 @@ pub trait Game: Sized + 'static {
     type ConductorCommand: Clone + Serialize + DeserializeOwned + 'static;
     type PlayerNotify: Clone + Serialize + DeserializeOwned + 'static;
     type PlayerCommand: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorClient: Client<Event = Self::ConductorNotify> + 'static;
-    type PlayerClient: Client<Event = Self::PlayerNotify> + 'static;
+    type Conductor: Frontend<Notify = Self::ConductorNotify, Command = Self::ConductorCommand>;
+    type Player: Frontend<Notify = Self::PlayerNotify, Command = Self::PlayerCommand>;
 
     fn new(config: Self::Config) -> Self;
 
@@ -30,12 +30,16 @@ pub trait Game: Sized + 'static {
         context: &mut Context<Self>,
         command: SystemCommand,
     );
-
-    fn log_error(&mut self, error: anyhow::Error);
 }
 
-pub trait Client {
-    type Event: Clone + Serialize + DeserializeOwned + 'static;
+pub trait Frontend: 'static {
+    type Notify: Clone + Serialize + DeserializeOwned + 'static;
+    type Command: Clone + Serialize + DeserializeOwned + 'static;
+
     fn new() -> Self;
-    fn handle_server_event(&mut self, event: Self::Event);
+
+    fn handle_notify(&mut self, notify: Self::Notify);
 }
+
+pub use self::Frontend as Player;
+pub use self::Frontend as Conductor;
