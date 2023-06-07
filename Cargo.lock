@@ -125,6 +125,7 @@ name = "eagle-client"
 version = "0.1.0"
 dependencies = [
  "eagle-game",
+ "eagle-types",
 ]
 
 [[package]]

@@ -1,6 +1,2 @@
-use eagle_game::prelude::Game;
-
-pub struct Client<T: Game> {
-    clients: Clients<C>,
-    room: Room<T>,
-}
+pub mod client;
+pub mod notify_log;

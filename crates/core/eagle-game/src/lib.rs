@@ -6,10 +6,10 @@ pub mod events;
 pub mod game;
 pub mod model;
 pub mod room;
+pub mod screen;
 
 pub mod prelude {
     pub use crate::bubble::*;
-    pub use crate::model::dispatcher::Dispatcher;
     pub use crate::events::GameCommand;
     pub use crate::game::Game;
     pub use crate::game::context::GameContext;

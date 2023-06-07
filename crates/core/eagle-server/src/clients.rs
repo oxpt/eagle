@@ -9,18 +9,18 @@ use eagle_types::{
 };
 use serde::Serialize;
 
-use crate::channel::Channel;
+use crate::notify_sender::NotifySender;
 
-pub struct Clients<C: Channel> {
+pub struct Clients<C: NotifySender> {
     users: BTreeMap<User, BTreeMap<ClientId, Client<C>>>,
 }
 
-struct Client<C: Channel> {
+struct Client<C: NotifySender> {
     channel: C,
     state: ClientState,
 }
 
-impl<C: Channel> Clients<C> {
+impl<C: NotifySender> Clients<C> {
     pub(crate) fn new() -> Self {
         Self {
             users: Default::default(),

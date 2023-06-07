@@ -1,6 +1,8 @@
 [workspace]
 
 members = ["crates/apps/*", "crates/core/*", "crates/games/*"]
+# It's difficult to design for now
+exclude = ["crates/core/client"]
 
 [workspace.dependencies]
 eagle-types = { path = "crates/core/eagle-types" }

@@ -1,4 +1,3 @@
-pub mod dispatcher;
 pub mod context;
 pub mod handle;
 
@@ -22,7 +21,7 @@ pub trait Model: Sized + 'static {
     // Rendering must not know about sub games because the knowing is done by the game.
     fn render(&self) -> Self::View;
 
-    fn handle_input(&self, view: &mut Self::View, input: Self::Input) -> Self::Command;
+    fn handle_input(&self, input: Self::Input) -> Self::Command;
 }
 
 
