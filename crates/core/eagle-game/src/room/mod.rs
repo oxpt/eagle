@@ -1,3 +1,7 @@
+pub(crate) mod command_history;
+pub(crate) mod game_instances;
+pub(crate) mod notify_history;
+
 use eagle_types::{
     events::SystemCommand,
     ids::{GameInstanceId, PlayerId},
@@ -5,10 +9,11 @@ use eagle_types::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
+use self::{game_instances::GameInstances, command_history::CommandHistory, notify_history::NotifyHistory};
 use crate::{
-    clients::ClientsRef, command_history::CommandHistory, context::Context, eff_handler::EffHandler,
-    game::Game, game_handle::GameHandle, game_instances::GameInstances,
-    notify_history::NotifyHistory,
+    clients::ClientsRef,
+    eff_handler::EffHandler,
+    game::{handle::GameHandle, Game, context::GameContext},
 };
 
 pub struct Room<T: Game> {
@@ -44,11 +49,11 @@ impl<T: Game> Room<T> {
         &mut self,
         clients: &mut ClientsRef,
         eff: &mut EffHandler,
-        mutate: impl FnOnce(&mut Context<T>, &mut T),
+        mutate: impl FnOnce(&mut GameContext<T>, &mut T),
     ) {
         let game = self.game_instances.get_game_instance_mut(self.game_handle);
 
-        let mut ctx = Context::new(
+        let mut ctx = GameContext::new(
             self.game_handle,
             clients,
             eff,

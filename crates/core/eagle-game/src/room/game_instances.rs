@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, any::Any, cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, collections::BTreeMap, rc::Rc};
 
 use eagle_types::ids::GameInstanceId;
 
-use crate::{game_handle::GameHandle, game::Game};
+use crate::game::{handle::GameHandle, Game};
 
 #[derive(Default)]
 pub(crate) struct GameInstances {
@@ -16,7 +16,8 @@ impl GameInstances {
         }
     }
     pub fn insert_game_instance<T: Game>(&mut self, handle: GameHandle<T>, game: T) {
-        self.game_instances.insert(handle.game_instance_id, Rc::new(RefCell::new(game)));
+        self.game_instances
+            .insert(handle.game_instance_id, Rc::new(RefCell::new(game)));
     }
     pub fn get_game_instance<T: Game>(&self, handle: GameHandle<T>) -> &RefCell<T> {
         self.game_instances
