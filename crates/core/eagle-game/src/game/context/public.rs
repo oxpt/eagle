@@ -6,7 +6,7 @@ use eagle_types::{
 };
 
 use crate::{
-    bubble::{CommandBubble, InnerCommandBubble, InnerNotifyBubble, NotifyBubble},
+    bubble::{CommandBubble, InnerCommandBubble, NotifyBubble},
     events::GameCommand,
     game::Game,
     game::handle::GameHandle,
@@ -70,8 +70,8 @@ impl<T: Game> GameContext<'_, '_, T> {
         handle: GameHandle<G>,
         mutate: impl FnOnce(&mut GameContext<G>, &mut G),
     ) where
-        T::ConductorNotify: From<NotifyBubble<G>>,
-        T::PlayerNotify: From<NotifyBubble<G>>,
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
     {
         let mut notifies = NotifyHistory::new();
         let mut ctx = GameContext::new(
@@ -87,17 +87,17 @@ impl<T: Game> GameContext<'_, '_, T> {
         mutate(&mut ctx, &mut game.borrow_mut());
         let NotifyHistory { conductor, players } = notifies;
         for notify in conductor {
-            let bubble = NotifyBubble::<G> {
+            let bubble = NotifyBubble::<G::Conductor> {
                 game_instance_id: handle.game_instance_id,
-                inner: InnerNotifyBubble::ConductorNotify { notify },
+                notify,
             };
             self.push_conductor_notify(bubble.into());
         }
         for (player_id, notifies) in players {
             for notify in notifies {
-                let bubble = NotifyBubble::<G> {
+                let bubble = NotifyBubble::<G::Player> {
                     game_instance_id: handle.game_instance_id,
-                    inner: InnerNotifyBubble::PlayerNotify { player_id, notify },
+                    notify,
                 };
                 self.push_player_notify(player_id, bubble.into());
             }
@@ -111,8 +111,8 @@ impl<T: Game> GameContext<'_, '_, T> {
         handle: GameHandle<G>,
         event: G::ConductorCommand,
     ) where
-        T::ConductorNotify: From<NotifyBubble<G>>,
-        T::PlayerNotify: From<NotifyBubble<G>>,
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
     {
         self.mutate_game(handle, |ctx, game| {
             ctx.handle_conductor_command(handle, game, event)
@@ -127,8 +127,8 @@ impl<T: Game> GameContext<'_, '_, T> {
         player_id: PlayerId,
         event: G::PlayerCommand,
     ) where
-        T::ConductorNotify: From<NotifyBubble<G>>,
-        T::PlayerNotify: From<NotifyBubble<G>>,
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
     {
         self.mutate_game(handle, |ctx, game| {
             ctx.handle_player_command(handle, game, player_id, event)
@@ -139,21 +139,21 @@ impl<T: Game> GameContext<'_, '_, T> {
     /// by the implementation. This means that the return values of other methods might be updated.
     pub fn trigger_system_command<G: Game>(&mut self, handle: GameHandle<G>, event: SystemCommand)
     where
-        T::ConductorNotify: From<NotifyBubble<G>>,
-        T::PlayerNotify: From<NotifyBubble<G>>,
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
     {
         self.mutate_game(handle, |ctx, game| {
             ctx.handle_system_command(handle, game, event)
         });
     }
 
-    pub fn propagate<G: Game>(&mut self, bubbled: CommandBubble<G>)
+    pub fn propagate<G: Game>(&mut self, bubble: CommandBubble<G>)
     where
-        T::ConductorNotify: From<NotifyBubble<G>>,
-        T::PlayerNotify: From<NotifyBubble<G>>,
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
     {
-        let handle = GameHandle::<G>::new(bubbled.game_instance_id);
-        self.mutate_game(handle, |ctx, game| match bubbled.inner {
+        let handle = GameHandle::<G>::new(bubble.game_instance_id);
+        self.mutate_game(handle, |ctx, game| match bubble.inner {
             InnerCommandBubble::ConductorCommand { command } => {
                 ctx.handle_conductor_command(handle, game, command)
             }

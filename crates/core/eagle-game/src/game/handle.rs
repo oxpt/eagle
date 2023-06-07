@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use eagle_types::ids::GameInstanceId;
 
-use crate::game::Game;
+use crate::{game::Game, model::handle::ModelHandle};
 
 #[derive(Debug)]
 pub struct GameHandle<T: Game> {
@@ -16,6 +16,14 @@ impl <T: Game> GameHandle<T> {
             game_instance_id,
             phantom: PhantomData,
         }
+    }
+
+    pub fn to_conductor_model_handle(&self) -> ModelHandle<T::Conductor> {
+        ModelHandle::new(self.game_instance_id)
+    }
+
+    pub fn to_player_model_handle(&self) -> ModelHandle<T::Player> {
+        ModelHandle::new(self.game_instance_id)
     }
 }
 

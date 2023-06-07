@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eagle_game::Room;
-use eagle_server::{Channel, Clients, GameServer};
+use eagle_server::{NotifySender, Clients, GameServer};
 use eagle_types::{
     client::{ClientParams, User},
     events::NotifyIndex,
@@ -19,7 +19,7 @@ struct WebSocketConnection {
 
 type GameState = Arc<Mutex<GameServer<WebSocketConnection>>>;
 
-impl Channel for WebSocketConnection {
+impl NotifySender for WebSocketConnection {
     type Error = worker::Error;
 
     fn client_id(&self) -> ClientId {
@@ -107,7 +107,7 @@ async fn websocket(
         User::Conductor => {
             game_server.lock
     game_server.add_conductor_client(
-        Channel {
+        NotifySender {
             client_id,
             websocket: server.clone(),
         },

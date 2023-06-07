@@ -5,14 +5,14 @@ use eagle_types::{
     ids::{ClientId, PlayerId},
 };
 
-use crate::{channel::Channel, clients::Clients, repository::Repository, EffectOutcomes};
+use crate::{notify_sender::NotifySender, clients::Clients, repository::Repository, EffectOutcomes};
 
-pub struct GameServer<T: Game, C: Channel> {
+pub struct GameServer<T: Game, C: NotifySender> {
     clients: Clients<C>,
     room: Room<T>,
 }
 
-impl<T: Game, C: Channel> GameServer<T, C> {
+impl<T: Game, C: NotifySender> GameServer<T, C> {
     pub fn new(room: Room<T>) -> Self {
         Self {
             clients: Clients::new(),
@@ -55,7 +55,7 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         index: CommandIndex,
         command: T::ConductorCommand,
     ) {
-        todo!("skip already received events");
+        // TODO: skip already received events
         let mut eff = EffHandler::default();
         self.room
             .handle_conductor_command(&mut self.clients.to_ref(), &mut eff, command.clone());
@@ -69,12 +69,11 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         &mut self,
         repository: &mut impl Repository<T>,
         client_id: ClientId,
-        handle: GameHandle<T>,
         player_id: PlayerId,
         index: CommandIndex,
         command: T::PlayerCommand,
     ) {
-        todo!("skip already received events");
+        // TODO: skip already received events
         let mut eff = EffHandler::default();
         self.room.handle_player_command(
             &mut self.clients.to_ref(),

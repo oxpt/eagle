@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 eagle-game = { workspace = true }
+eagle-types = { workspace = true }
