@@ -1,10 +1,10 @@
 use eagle_types::{ids::PlayerId, events::SystemCommand};
 
-use crate::{game::Game, game_handle::GameHandle};
+use crate::{game::Game, game::handle::GameHandle};
 
-use super::Context;
+use super::GameContext;
 
-impl<'a, 'client, T: Game> Context<'a, 'client, T> {
+impl<'a, 'client, T: Game> GameContext<'a, 'client, T> {
     pub(crate) fn handle_conductor_command(
         &mut self,
         handle: GameHandle<T>,

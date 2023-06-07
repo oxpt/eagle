@@ -1,6 +1,6 @@
 use std::{any::Any, collections::BTreeMap};
 
-use crate::{events::GameCommand, game::Game, game_handle::GameHandle};
+use crate::{events::GameCommand, game::handle::GameHandle, game::Game};
 use eagle_types::{
     events::SystemCommand,
     ids::{GameInstanceId, PlayerId},

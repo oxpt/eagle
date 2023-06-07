@@ -7,14 +7,14 @@ use eagle_types::{
 
 use crate::{
     bubble::{CommandBubble, InnerCommandBubble, InnerNotifyBubble, NotifyBubble},
-    context::Context,
     events::GameCommand,
     game::Game,
-    game_handle::GameHandle,
-    notify_history::NotifyHistory,
+    game::handle::GameHandle,
+    room::notify_history::NotifyHistory,
 };
+use super::GameContext;
 
-impl<T: Game> Context<'_, '_, T> {
+impl<T: Game> GameContext<'_, '_, T> {
     // clients
 
     pub fn get_conductor_clients(&mut self) -> Vec<ClientState> {
@@ -68,13 +68,13 @@ impl<T: Game> Context<'_, '_, T> {
     fn mutate_game<G: Game>(
         &mut self,
         handle: GameHandle<G>,
-        mutate: impl FnOnce(&mut Context<G>, &mut G),
+        mutate: impl FnOnce(&mut GameContext<G>, &mut G),
     ) where
         T::ConductorNotify: From<NotifyBubble<G>>,
         T::PlayerNotify: From<NotifyBubble<G>>,
     {
         let mut notifies = NotifyHistory::new();
-        let mut ctx = Context::new(
+        let mut ctx = GameContext::new(
             handle,
             self.clients,
             self.eff,
