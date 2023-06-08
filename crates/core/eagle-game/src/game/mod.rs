@@ -21,16 +21,16 @@ pub trait Game: Sized + 'static {
 
     fn handle_conductor_command(
         &mut self,
-        context: &mut GameContext<Self>,
+        context: &mut impl GameContext<Self>,
         command: Self::ConductorCommand,
     );
 
     fn handle_player_command(
         &mut self,
-        context: &mut GameContext<Self>,
+        context: &mut impl GameContext<Self>,
         player_id: PlayerId,
         command: Self::PlayerCommand,
     );
 
-    fn handle_system_command(&mut self, context: &mut GameContext<Self>, command: SystemCommand);
+    fn handle_system_command(&mut self, context: &mut impl GameContext<Self>, command: SystemCommand);
 }

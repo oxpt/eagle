@@ -13,7 +13,7 @@ use self::{game_instances::GameInstances, command_history::CommandHistory, notif
 use crate::{
     clients::ClientsRef,
     eff_handler::EffHandler,
-    game::{handle::GameHandle, Game, context::GameContext},
+    game::{handle::GameHandle, Game, context::GameContextImpl},
 };
 
 pub struct Room<T: Game> {
@@ -49,11 +49,11 @@ impl<T: Game> Room<T> {
         &mut self,
         clients: &mut ClientsRef,
         eff: &mut EffHandler,
-        mutate: impl FnOnce(&mut GameContext<T>, &mut T),
+        mutate: impl FnOnce(&mut GameContextImpl<T>, &mut T),
     ) {
         let game = self.game_instances.get_game_instance_mut(self.game_handle);
 
-        let mut ctx = GameContext::new(
+        let mut ctx = GameContextImpl::new(
             self.game_handle,
             clients,
             eff,
