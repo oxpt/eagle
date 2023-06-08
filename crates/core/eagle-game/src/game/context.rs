@@ -1,15 +1,25 @@
 use chrono::{DateTime, Utc};
-use eagle_types::{client::{ClientState, User}, ids::{PlayerId, GameInstanceId}, events::SystemCommand};
+use eagle_types::{
+    client::{ClientState, User},
+    events::SystemCommand,
+    ids::{GameInstanceId, PlayerId},
+};
 use rand_chacha::ChaCha8Rng;
 
 use crate::{
+    bubble::{CommandBubble, InnerCommandBubble, NotifyBubble},
     clients::ClientsRef,
     eff_handler::EffHandler,
+    events::GameCommand,
     game::Game,
-    prelude::GameHandle, room::{command_history::CommandHistory, notify_history::NotifyHistory, game_instances::GameInstances}, events::GameCommand, bubble::{NotifyBubble, CommandBubble, InnerCommandBubble},
+    prelude::GameHandle,
+    room::{
+        command_history::CommandHistory, game_instances::GameInstances,
+        notify_history::NotifyHistory,
+    },
 };
 
-pub struct GameContextImpl<'a, 'client, T: Game> {
+pub(crate) struct GameContextImpl<'a, 'client, T: Game> {
     game_handle: GameHandle<T>,
     clients: &'a mut ClientsRef<'client>,
     eff: &'a mut EffHandler,
@@ -42,13 +52,17 @@ impl<T: Game> GameContextImpl<'_, '_, T> {
 }
 
 pub trait GameContext<T: Game> {
-    type CommandIterator<'a>: Iterator<Item = &'a GameCommand<T>> where Self: 'a;
-    type GameRef<'a, G: Game>: std::ops::Deref<Target = G> + 'a where Self: 'a;
+    type CommandIterator<'a>: Iterator<Item = &'a GameCommand<T>>
+    where
+        Self: 'a;
+    type GameRef<'a, G: Game>: std::ops::Deref<Target = G> + 'a
+    where
+        Self: 'a;
 
     // clients
 
-    fn get_conductor_clients(&mut self) -> Vec<ClientState>; 
-    fn get_player_clients(&mut self, player_id: PlayerId) -> Vec<ClientState>; 
+    fn get_conductor_clients(&mut self) -> Vec<ClientState>;
+    fn get_player_clients(&mut self, player_id: PlayerId) -> Vec<ClientState>;
 
     // history
 
@@ -56,26 +70,15 @@ pub trait GameContext<T: Game> {
 
     // game output
 
-    fn push_conductor_notify(&mut self, notify: T::ConductorNotify); 
-    fn push_player_notify(&mut self, player_id: PlayerId, notify: T::PlayerNotify); 
+    fn push_conductor_notify(&mut self, notify: T::ConductorNotify);
+    fn push_player_notify(&mut self, player_id: PlayerId, notify: T::PlayerNotify);
 
     // game management
 
-    fn create_game_instance<G: Game>(&mut self, config: G::Config) -> GameHandle<G>; 
+    fn create_game_instance<G: Game>(&mut self, config: G::Config) -> GameHandle<G>;
     /// Get the game state for a given game instance.
-    fn get_game_state<'a, G: Game>(
-        &'a self,
-        handle: GameHandle<G>,
-    ) -> Self::GameRef<'a, G>;
+    fn get_game_state<'a, G: Game>(&'a self, handle: GameHandle<G>) -> Self::GameRef<'a, G>;
 
-    fn mutate_game<G: Game>(
-        &mut self,
-        handle: GameHandle<G>,
-        mutate: impl FnOnce(&mut GameContextImpl<G>, &mut G),
-    ) where
-        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-;
     /// Trigger a conductor command for a given game instance. The event must be handled immediately
     /// by the implementation. This means that the return values of other methods might be updated.
     fn trigger_conductor_client_event<G: Game>(
@@ -84,8 +87,7 @@ pub trait GameContext<T: Game> {
         event: G::ConductorCommand,
     ) where
         NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-;
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>;
     /// Trigger a player command for a given game instance. The event must be handled immediately
     /// by the implementation. This means that the return values of other methods might be updated.
     fn trigger_player_client_event<G: Game>(
@@ -95,23 +97,20 @@ pub trait GameContext<T: Game> {
         event: G::PlayerCommand,
     ) where
         NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-;
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>;
     /// Trigger a system command for a given game instance. The event must be handled immediately
     /// by the implementation. This means that the return values of other methods might be updated.
     fn trigger_system_command<G: Game>(&mut self, handle: GameHandle<G>, event: SystemCommand)
     where
         NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-;
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>;
     fn propagate<G: Game>(&mut self, bubble: CommandBubble<G>)
     where
         NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-;
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>;
     /// other side effects
 
-    fn now(&mut self) -> DateTime<Utc>; 
+    fn now(&mut self) -> DateTime<Utc>;
 }
 
 impl<T: Game> GameContext<T> for GameContextImpl<'_, '_, T> {
@@ -160,50 +159,8 @@ impl<T: Game> GameContext<T> for GameContextImpl<'_, '_, T> {
         handle
     }
     /// Get the game state for a given game instance.
-    fn get_game_state<G: Game>(
-        &self,
-        handle: GameHandle<G>,
-    ) -> Self::GameRef<'_, G> {
+    fn get_game_state<G: Game>(&self, handle: GameHandle<G>) -> Self::GameRef<'_, G> {
         self.game_instances.get_game_instance(handle).borrow()
-    }
-
-    fn mutate_game<G: Game>(
-        &mut self,
-        handle: GameHandle<G>,
-        mutate: impl FnOnce(&mut GameContextImpl<G>, &mut G),
-    ) where
-        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
-        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
-    {
-        let mut notifies = NotifyHistory::new();
-        let mut ctx = GameContextImpl::new(
-            handle,
-            self.clients,
-            self.eff,
-            self.command_history,
-            &mut notifies,
-            self.game_instances,
-            self.rng,
-        );
-        let game = ctx.game_instances.get_game_instance_mut(handle);
-        mutate(&mut ctx, &mut game.borrow_mut());
-        let NotifyHistory { conductor, players } = notifies;
-        for notify in conductor {
-            let bubble = NotifyBubble::<G::Conductor> {
-                game_instance_id: handle.game_instance_id,
-                notify,
-            };
-            self.push_conductor_notify(bubble.into());
-        }
-        for (player_id, notifies) in players {
-            for notify in notifies {
-                let bubble = NotifyBubble::<G::Player> {
-                    game_instance_id: handle.game_instance_id,
-                    notify,
-                };
-                self.push_player_notify(player_id, bubble.into());
-            }
-        }
     }
 
     /// Trigger a conductor command for a given game instance. The event must be handled immediately
@@ -284,6 +241,45 @@ impl<'a, 'client, T: Game> GameContextImpl<'a, 'client, T> {
         self.command_history
             .log_conductor_command(handle, command.clone());
         game.handle_conductor_command(self, command);
+    }
+
+    fn mutate_game<G: Game>(
+        &mut self,
+        handle: GameHandle<G>,
+        mutate: impl FnOnce(&mut GameContextImpl<G>, &mut G),
+    ) where
+        NotifyBubble<G::Conductor>: Into<T::ConductorNotify>,
+        NotifyBubble<G::Player>: Into<T::PlayerNotify>,
+    {
+        let mut notifies = NotifyHistory::new();
+        let mut ctx = GameContextImpl::new(
+            handle,
+            self.clients,
+            self.eff,
+            self.command_history,
+            &mut notifies,
+            self.game_instances,
+            self.rng,
+        );
+        let game = ctx.game_instances.get_game_instance_mut(handle);
+        mutate(&mut ctx, &mut game.borrow_mut());
+        let NotifyHistory { conductor, players } = notifies;
+        for notify in conductor {
+            let bubble = NotifyBubble::<G::Conductor> {
+                game_instance_id: handle.game_instance_id,
+                notify,
+            };
+            self.push_conductor_notify(bubble.into());
+        }
+        for (player_id, notifies) in players {
+            for notify in notifies {
+                let bubble = NotifyBubble::<G::Player> {
+                    game_instance_id: handle.game_instance_id,
+                    notify,
+                };
+                self.push_player_notify(player_id, bubble.into());
+            }
+        }
     }
 
     pub(crate) fn handle_player_command(

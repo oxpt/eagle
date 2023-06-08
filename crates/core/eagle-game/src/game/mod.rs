@@ -4,7 +4,8 @@ pub mod handle;
 use eagle_types::{events::SystemCommand, ids::PlayerId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{game::context::GameContext, model::Model};
+use crate::{model::Model};
+use context::GameContext;
 
 pub trait Game: Sized + 'static {
     type Config: Clone + Serialize + DeserializeOwned + 'static;

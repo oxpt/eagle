@@ -1,6 +1,6 @@
 use eagle_types::ids::GameInstanceId;
 
-use crate::model::{context::ModelContext, handle::ModelHandle, Model};
+use crate::model::{context::ModelContextImpl, handle::ModelHandle, Model};
 
 use self::model_instances::ModelInstances;
 
@@ -25,7 +25,7 @@ impl<T: Model> Screen<T> {
     pub fn handle_notify(&mut self, notify: T::Notify) {
         let handle = self.model_handle;
         let game = self.model_instances.get_model_instance(handle);
-        let mut ctx = ModelContext {
+        let mut ctx = ModelContextImpl {
             game_handle: handle,
             model_instances: &mut self.model_instances,
         };

@@ -12,7 +12,7 @@ pub mod prelude {
     pub use crate::bubble::*;
     pub use crate::events::GameCommand;
     pub use crate::game::Game;
-    pub use crate::game::context::GameContextImpl;
+    pub use crate::game::context::GameContext;
     pub use crate::game::handle::GameHandle;
     pub use crate::model::handle::ModelHandle;
     pub use crate::model::context::ModelContext;
