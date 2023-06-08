@@ -4,7 +4,7 @@ pub mod handle;
 use erased_serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use self::context::ModelContext;
+use self::context::{ ModelContext};
 
 pub trait Model: Sized + 'static {
     type View: 'static;
@@ -16,7 +16,7 @@ pub trait Model: Sized + 'static {
 
     // The context is used for propagate notify to sub games;
     // Other than this must not use mut reference to enable replayability of the view model.
-    fn handle_notify(&mut self, context: &mut ModelContext<Self>, notify: Self::Notify);
+    fn handle_notify(&mut self, context: &mut impl ModelContext<Self>, notify: Self::Notify);
 
     // Rendering must not know about sub games because the knowing is done by the game.
     fn render(&self) -> Self::View;
