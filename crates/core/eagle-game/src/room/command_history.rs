@@ -69,7 +69,7 @@ impl CommandHistory {
     pub fn all_commands<T: Game>(
         &self,
         game_handle: GameHandle<T>,
-    ) -> impl Iterator<Item = &GameCommand<T>> {
+    ) -> std::slice::Iter<'_, GameCommand<T>> {
         self.games
             .get(&game_handle.game_instance_id)
             .map(|commands| {
