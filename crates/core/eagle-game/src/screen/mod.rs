@@ -1,6 +1,8 @@
 use eagle_types::ids::GameInstanceId;
 
-use crate::model::{context::ModelContextImpl, handle::ModelHandle, Model};
+use crate::model::{
+    context::ModelContextImpl, handle::ModelHandle, render_context::RenderContextImpl, Model,
+};
 
 use self::model_instances::ModelInstances;
 
@@ -40,8 +42,7 @@ impl<T: Model> Screen<T> {
         &mut self,
         handle: ModelHandle<M>,
         input: M::Input,
-    ) -> T::Command
-    {
+    ) -> T::Command {
         self.model_instances.handle_input::<T, M>(handle, input)
     }
 
@@ -50,6 +51,11 @@ impl<T: Model> Screen<T> {
     }
 
     pub(crate) fn render_of<M: Model>(&mut self, handle: ModelHandle<M>) -> M::View {
-        self.model_instances.get_model_instance(handle).borrow().render()
+        let game = self.model_instances.get_model_instance(handle);
+        let ctx = RenderContextImpl {
+            model_instances: &mut self.model_instances,
+        };
+        let view = game.borrow().render(&ctx);
+        view
     }
 }

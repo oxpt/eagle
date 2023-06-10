@@ -5,7 +5,7 @@ use eagle_game::clients::ClientsRef;
 use eagle_types::{
     client::{ClientState, User},
     events::NotifyIndex,
-    ids::ClientId,
+    ids::ClientId, messages::ServerToClientMessage,
 };
 use serde::Serialize;
 
@@ -43,7 +43,7 @@ impl<C: NotifySender> Clients<C> {
         }
     }
 
-    pub(crate) fn send_server_event<T: Clone + Serialize>(
+    pub(crate) fn send_notify<T: Clone + Serialize>(
         &mut self,
         user: User,
         index: NotifyIndex,
@@ -53,7 +53,10 @@ impl<C: NotifySender> Clients<C> {
             let mut failures = Vec::new();
             for (_, client) in clients.iter_mut() {
                 // TODO: Don't send if the client already receives the event.
-                if let Err(_err) = client.channel.send(index, event.clone()) {
+                if let Err(_err) = client.channel.send(ServerToClientMessage {
+                    index,
+                    notify: event.clone(),
+                }) {
                     failures.push(client.channel.client_id());
                 }
             }
@@ -76,7 +79,7 @@ impl<C: NotifySender> Clients<C> {
                 inner
                     .downcast_mut::<Clients<C>>()
                     .unwrap()
-                    .send_server_event(user, index, event)
+                    .send_notify(user, index, event)
             },
         }
     }
