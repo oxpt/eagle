@@ -4,8 +4,8 @@ use eagle_game::{prelude::Game, room::Room};
 use eagle_server::{GameServer, NotifySender};
 use eagle_types::{
     client::{ClientParams, User},
-    events::NotifyIndex,
-    ids::{ClientId, GameInstanceId},
+    ids::{ClientId, GameInstanceId, PlayerId},
+    messages::ServerToClientMessage,
 };
 
 use futures::{lock::Mutex, StreamExt};
@@ -17,7 +17,7 @@ struct WebSocketConnection {
     websocket: WebSocket,
 }
 
-type GameState<T: Game> = Arc<Mutex<GameServer<T, WebSocketConnection>>>;
+type GameState<T> = Arc<Mutex<GameServer<T, WebSocketConnection>>>;
 
 impl NotifySender for WebSocketConnection {
     type Error = worker::Error;
@@ -28,10 +28,9 @@ impl NotifySender for WebSocketConnection {
 
     fn send<T: serde::Serialize>(
         &self,
-        index: NotifyIndex,
-        event: T,
+        message: ServerToClientMessage<T>,
     ) -> std::result::Result<(), Self::Error> {
-        todo!()
+        self.websocket.send(&message)
     }
 
     fn close(&self) -> std::result::Result<(), Self::Error> {
@@ -44,6 +43,7 @@ impl NotifySender for WebSocketConnection {
 }
 
 pub struct WorkerGame<T: Game> {
+    #[allow(dead_code)]
     state: State,
     env: Env,
     game_state: GameState<T>,
@@ -65,7 +65,7 @@ impl<T: Game> WorkerGame<T> {
         }
     }
 
-    async fn fetch(&mut self, req: Request) -> worker::Result<Response> {
+    pub async fn fetch(&mut self, req: Request) -> worker::Result<Response> {
         fn get_client_id<T>(ctx: &RouteContext<T>) -> worker::Result<ClientId> {
             let client_id = ctx.param("client_id").unwrap();
             match Uuid::parse_str(client_id) {
@@ -82,8 +82,23 @@ impl<T: Game> WorkerGame<T> {
             .get_async("/play/:client_id", |mut req, ctx| async move {
                 let client_id = get_client_id(&ctx)?;
                 let params = get_client_params(&mut req).await?;
-                let player_id = todo!("get player_id from kv");
-                websocket(ctx.data.clone(), User::Player(player_id), client_id, params).await
+                let attachments = ctx.kv("PLAYER_CLIENT_ATTACHMENTS").unwrap();
+                if let Some(player_id) = attachments
+                    .get(&client_id.0.to_string())
+                    .text()
+                    .await?
+                    .and_then(|s| Uuid::parse_str(&s).ok())
+                {
+                    websocket(
+                        ctx.data.clone(),
+                        User::Player(PlayerId(player_id)),
+                        client_id,
+                        params,
+                    )
+                    .await
+                } else {
+                    Err(Error::Json(("Player not found".into(), 400)))
+                }
             })
             .get_async("/conduct/:client_id", |mut req, ctx| async move {
                 let client_id = get_client_id(&ctx)?;
@@ -103,14 +118,27 @@ async fn websocket<T: Game>(
 ) -> Result<Response> {
     let WebSocketPair { client, server } = WebSocketPair::new()?;
 
-        let game_server = state.clone();
+    let game_server = state.clone();
 
     match user {
         User::Conductor => {
-            game_server.lock().await.add_conductor_client(client_params, WebSocketConnection { client_id, websocket: server.clone() });
+            game_server.lock().await.add_conductor_client(
+                client_params,
+                WebSocketConnection {
+                    client_id,
+                    websocket: server.clone(),
+                },
+            );
         }
         User::Player(player_id) => {
-            game_server.lock().await.add_player_client(player_id, client_params, WebSocketConnection { client_id, websocket: server.clone() });
+            game_server.lock().await.add_player_client(
+                player_id,
+                client_params,
+                WebSocketConnection {
+                    client_id,
+                    websocket: server.clone(),
+                },
+            );
         }
     }
 
@@ -126,15 +154,11 @@ async fn websocket<T: Game>(
                 WebsocketEvent::Message(msg) => {
                     //TODO: parse msg
                     match user {
-                        User::Conductor => {
-                        },
-                        User::Player(player_id) => {
-                        }
+                        User::Conductor => {}
+                        User::Player(player_id) => {}
                     }
                 }
-                WebsocketEvent::Close(_) => {
-                    state.lock().await.remove_client(user, client_id)
-                }
+                WebsocketEvent::Close(_) => state.lock().await.remove_client(user, client_id),
             }
         }
     });

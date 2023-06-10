@@ -1,11 +1,17 @@
-use eagle_game::{prelude::{Game, GameCommand, GameHandle}, room::Room, eff_handler::EffHandler};
+use eagle_game::{
+    eff_handler::EffHandler,
+    prelude::{Game, GameCommand},
+    room::Room,
+};
 use eagle_types::{
     client::{ClientParams, User},
     events::{CommandIndex, SystemCommand},
     ids::{ClientId, PlayerId},
 };
 
-use crate::{notify_sender::NotifySender, clients::Clients, repository::Repository, EffectOutcomes};
+use crate::{
+    clients::Clients, notify_sender::NotifySender, repository::Repository, EffectOutcomes,
+};
 
 pub struct GameServer<T: Game, C: NotifySender> {
     clients: Clients<C>,
@@ -27,7 +33,7 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
             for event in events.skip(latest_index.skip()) {
                 latest_index = latest_index.next();
                 self.clients
-                    .send_server_event(User::Conductor, latest_index, event);
+                    .send_notify(User::Conductor, latest_index, event);
             }
         }
     }
@@ -39,7 +45,7 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
             for event in events.skip(latest_index.skip()) {
                 latest_index = latest_index.next();
                 self.clients
-                    .send_server_event(User::Player(player_id), latest_index, event);
+                    .send_notify(User::Player(player_id), latest_index, event);
             }
         }
     }
@@ -84,7 +90,10 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
         let effect_outcomes = EffectOutcomes::from(eff);
         self.clients
             .update_last_successful_communication(User::Player(player_id), client_id);
-        repository.store_command(GameCommand::PlayerCommand(player_id, command), effect_outcomes);
+        repository.store_command(
+            GameCommand::PlayerCommand(player_id, command),
+            effect_outcomes,
+        );
     }
 
     pub fn handle_system_event(
