@@ -12,12 +12,34 @@ use crate::{
     },
     phase::Phase,
     player_model::PlayerModel,
-    types::{Players, ProposalOpenTiming},
+    types::{ControlVisibility, Players, Proposal, ProposalOpenTiming},
 };
 
 pub struct UltimatumGame {
     config: UltimatumConfig,
     phase: Phase,
+}
+
+pub(crate) fn standby(context: &mut impl GameContext<UltimatumGame>, players: Players) -> Phase {
+    context.push_player_notify(players.proposer, UltimatumPlayerNotify::YouAreProposer);
+    context.push_player_notify(players.responder, UltimatumPlayerNotify::YouAreResponder);
+    return Phase::Standby { players };
+}
+
+pub(crate) fn open_proposal(
+    context: &mut impl GameContext<UltimatumGame>,
+    players: Players,
+    proposal: Proposal,
+) -> Phase {
+    context.push_player_notify(
+        players.proposer,
+        UltimatumPlayerNotify::OpenProposal(proposal),
+    );
+    context.push_player_notify(
+        players.responder,
+        UltimatumPlayerNotify::OpenProposal(proposal),
+    );
+    return Phase::Responding { players, proposal };
 }
 
 impl Game for UltimatumGame {
@@ -50,53 +72,48 @@ impl Game for UltimatumGame {
     ) {
         use UltimatumConductorCommand as Command;
         match (&mut self.phase, command) {
-            (
-                Phase::WaitingForAttachment {
-                    responder,
-                    proposer,
-                },
-                Command::AttachProposer(player_id),
-            ) => {
+            (Phase::WaitingForAttachment { responder, .. }, Command::AttachProposer(proposer)) => {
                 if let Some(responder) = responder {
-                    self.phase = Phase::Standby {
-                        players: Players {
-                            proposer: player_id,
+                    self.phase = standby(
+                        context,
+                        Players {
+                            proposer,
                             responder: *responder,
                         },
-                    }
+                    )
                 } else {
-                    *proposer = Some(player_id)
+                    self.phase = Phase::WaitingForAttachment {
+                        proposer: Some(proposer),
+                        responder: *responder,
+                    }
                 }
             }
-            (
-                Phase::WaitingForAttachment {
-                    proposer,
-                    responder,
-                },
-                Command::AttachResponder(player_id),
-            ) => {
+            (Phase::WaitingForAttachment { proposer, .. }, Command::AttachResponder(responder)) => {
                 if let Some(proposer) = proposer {
-                    self.phase = Phase::Standby {
-                        players: Players {
+                    self.phase = standby(
+                        context,
+                        Players {
                             proposer: *proposer,
-                            responder: player_id,
+                            responder,
                         },
-                    }
+                    )
                 } else {
-                    *responder = Some(player_id)
+                    self.phase = Phase::WaitingForAttachment {
+                        proposer: *proposer,
+                        responder: Some(responder),
+                    }
                 }
             }
             (Phase::Standby { players }, Command::StartGame) => {
+                context.push_player_notify(players.proposer, UltimatumPlayerNotify::StartGame);
+                context.push_player_notify(players.responder, UltimatumPlayerNotify::StartGame);
                 self.phase = Phase::Requesting {
                     players: *players,
                     proposal: None,
-                }
+                };
             }
             (Phase::ProposalHidden { players, proposal }, Command::OpenProposal) => {
-                self.phase = Phase::Responding {
-                    players: *players,
-                    proposal: *proposal,
-                }
+                self.phase = open_proposal(context, *players, *proposal)
             }
             (phase, command) => context.push_conductor_notify(UltimatumConductorNotify::Error(
                 UltimatumError::UnexpectedConductorCommand {
@@ -115,16 +132,19 @@ impl Game for UltimatumGame {
     ) {
         use UltimatumPlayerCommand as Command;
         match (&mut self.phase, command) {
-            (Phase::Requesting { proposal, .. }, Command::UpdateProposal(new)) => {
+            (Phase::Requesting { proposal, players }, Command::UpdateProposal(new)) => {
                 *proposal = Some(new);
+                if self.config.control_visibility == ControlVisibility::Realtime {
+                    context.push_player_notify(
+                        players.responder,
+                        UltimatumPlayerNotify::UpdateProposal(*proposal),
+                    );
+                }
             }
             (Phase::Requesting { players, .. }, Command::SubmitProposal(proposal)) => {
                 match self.config.proposal_open_timing {
                     ProposalOpenTiming::Immediate => {
-                        self.phase = Phase::Responding {
-                            players: *players,
-                            proposal,
-                        }
+                        self.phase = open_proposal(context, *players, proposal)
                     }
                     ProposalOpenTiming::ByConductor => {
                         self.phase = Phase::ProposalHidden {
@@ -135,6 +155,10 @@ impl Game for UltimatumGame {
                 }
             }
             (Phase::Responding { players, proposal }, Command::Respond(response)) => {
+                context.push_player_notify(
+                    players.proposer,
+                    UltimatumPlayerNotify::Responded(response),
+                );
                 self.phase = Phase::Result {
                     players: *players,
                     proposal: *proposal,

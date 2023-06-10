@@ -34,4 +34,8 @@ pub enum UltimatumPlayerNotify {
     YouAreProposer,
     YouAreResponder,
     Proposal(Proposal),
+    StartGame,
+    OpenProposal(Proposal),
+    UpdateProposal(Option<crate::types::Proposal>),
+    Responded(Response),
 }
