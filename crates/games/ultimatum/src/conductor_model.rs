@@ -6,9 +6,12 @@ use eagle_game::{
 use crate::{
     conductor_view::ConductorView,
     events::{UltimatumConductorCommand, UltimatumConductorNotify},
+    types::Proposal,
 };
 
-pub struct UltimatumConductor {}
+pub struct UltimatumConductor {
+    proposal: Option<Proposal>,
+}
 
 pub struct UltimatumConductorInput {}
 
@@ -22,8 +25,13 @@ impl Model for UltimatumConductor {
         todo!()
     }
 
-    fn handle_notify(&mut self, context: &mut impl ModelContext<Self>, notify: Self::Notify) {
-        todo!()
+    fn handle_notify(&mut self, _: &mut impl ModelContext<Self>, notify: Self::Notify) {
+        match notify {
+            UltimatumConductorNotify::UpdateProposal(_) => todo!(),
+            UltimatumConductorNotify::Proposed => todo!(),
+            UltimatumConductorNotify::Response(_) => todo!(),
+            UltimatumConductorNotify::Error(_) => todo!(),
+        }
     }
 
     fn render(&self, context: &impl RenderContext) -> Self::View {
