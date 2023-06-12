@@ -10,11 +10,9 @@ pub struct GameClient<T: Model> {
     screen: Screen<T>,
 }
 
-impl <T: Model> GameClient<T> {
+impl<T: Model> GameClient<T> {
     pub fn new(screen: Screen<T>) -> Self {
-        Self {
-            screen,
-        }
+        Self { screen }
     }
 
     pub fn handle_notify(&mut self, index: NotifyIndex, notify: T::Notify) {
