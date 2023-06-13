@@ -6,11 +6,15 @@ use eagle_game::{
 use crate::{
     conductor_view::ConductorView,
     events::{UltimatumConductorCommand, UltimatumConductorNotify},
-    types::Proposal,
+    types::{Proposal, Response},
 };
 
+#[derive(Debug, Default)]
 pub struct UltimatumConductor {
     proposal: Option<Proposal>,
+    proposed: bool,
+    response: Option<Response>,
+    errors: Vec<String>,
 }
 
 pub struct UltimatumConductorInput {}
@@ -22,20 +26,20 @@ impl Model for UltimatumConductor {
     type Command = UltimatumConductorCommand;
 
     fn new() -> Self {
-        todo!()
+        Default::default()
     }
 
     fn handle_notify(&mut self, _: &mut impl ModelContext<Self>, notify: Self::Notify) {
         match notify {
-            UltimatumConductorNotify::UpdateProposal(_) => todo!(),
-            UltimatumConductorNotify::Proposed => todo!(),
-            UltimatumConductorNotify::Response(_) => todo!(),
-            UltimatumConductorNotify::Error(_) => todo!(),
+            UltimatumConductorNotify::UpdateProposal(proposal) => self.proposal = Some(proposal),
+            UltimatumConductorNotify::Proposed => self.proposed = true,
+            UltimatumConductorNotify::Response(response) => self.response = Some(response),
+            UltimatumConductorNotify::Error(error) => self.errors.push(format!("{:?}", error)),
         }
     }
 
-    fn render(&self, context: &impl RenderContext) -> Self::View {
-        todo!()
+    fn render(&self, _: &impl RenderContext) -> Self::View {
+        ConductorView {}
     }
 
     fn handle_input(&self, input: Self::Input) -> Self::Command {

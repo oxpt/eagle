@@ -1,5 +1,5 @@
 [package]
-name = "eagle-cloudflare-workers"
+name = "eagle-xeejp"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -17,8 +17,10 @@ crate-type = ["cdylib"]
 eagle-types = { workspace = true }
 eagle-game = { workspace = true }
 eagle-server = { workspace = true }
+eagle-ultimatum = { workspace = true }
 
 worker = "= 0.0.17"
 futures = "0.3.21"
 uuid = { version = "1.3.3", features = ["v4", "js"] }
 serde = { version = "1.0.163", features = ["derive"] }
+getrandom = { version = "0.2.10", features = ["js"] }

@@ -1,18 +1,20 @@
 pub mod context;
 pub mod handle;
 
+use std::fmt::Debug;
+
 use eagle_types::{events::SystemCommand, ids::PlayerId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{model::Model};
+use crate::model::Model;
 use context::GameContext;
 
-pub trait Game: Sized + 'static {
-    type Config: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorNotify: Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorCommand: Clone + Serialize + DeserializeOwned + 'static;
-    type PlayerNotify: Clone + Serialize + DeserializeOwned + 'static;
-    type PlayerCommand: Clone + Serialize + DeserializeOwned + 'static;
+pub trait Game: Debug + Sized + 'static {
+    type Config: Default + Debug + Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorNotify: Debug + Clone + Serialize + DeserializeOwned + 'static;
+    type ConductorCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerNotify: Debug + Clone + Serialize + DeserializeOwned + 'static;
+    type PlayerCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
     type Conductor: Model<Notify = Self::ConductorNotify>;
     type Player: Model<Notify = Self::PlayerNotify>;
 
@@ -33,5 +35,9 @@ pub trait Game: Sized + 'static {
         command: Self::PlayerCommand,
     );
 
-    fn handle_system_command(&mut self, context: &mut impl GameContext<Self>, command: SystemCommand);
+    fn handle_system_command(
+        &mut self,
+        context: &mut impl GameContext<Self>,
+        command: SystemCommand,
+    );
 }

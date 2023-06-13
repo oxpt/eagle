@@ -152,7 +152,7 @@ impl<T: Game> GameContext<T> for GameContextImpl<'_, '_, T> {
     // game management
 
     fn create_game_instance<G: Game>(&mut self, config: G::Config) -> GameHandle<G> {
-        let id = self.eff.new_game.run(|| GameInstanceId::new());
+        let id = self.eff.new_game.run(|| GameInstanceId::gen());
         let handle = GameHandle::new(id);
         let game = G::new(config);
         self.game_instances.insert_game_instance(handle, game);

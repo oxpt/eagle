@@ -10,7 +10,10 @@ use eagle_types::{
 };
 
 use crate::{
-    clients::Clients, notify_sender::NotifySender, repository::Repository, EffectOutcomes,
+    clients::Clients,
+    effect_outcomes::EffectOutcomes,
+    notify_sender::NotifySender,
+    repository::{Repository, RepositoryLogEntry},
 };
 
 pub struct GameServer<T: Game, C: NotifySender> {
@@ -54,7 +57,7 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
         self.clients.remove_channel(user, client_id);
     }
 
-    pub fn handle_conductor_event(
+    pub fn handle_conductor_command(
         &mut self,
         repository: &mut impl Repository<T>,
         client_id: ClientId,
@@ -68,10 +71,13 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
         let effect_outcomes = EffectOutcomes::from(eff);
         self.clients
             .update_last_successful_communication(User::Conductor, client_id);
-        repository.store_command(GameCommand::ConductorCommand(command), effect_outcomes);
+        repository.store_command(RepositoryLogEntry {
+            command: GameCommand::ConductorCommand(command),
+            effect_outcomes,
+        });
     }
 
-    pub fn handle_player_event(
+    pub fn handle_player_command(
         &mut self,
         repository: &mut impl Repository<T>,
         client_id: ClientId,
@@ -90,10 +96,10 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
         let effect_outcomes = EffectOutcomes::from(eff);
         self.clients
             .update_last_successful_communication(User::Player(player_id), client_id);
-        repository.store_command(
-            GameCommand::PlayerCommand(player_id, command),
+        repository.store_command(RepositoryLogEntry {
+            command: GameCommand::PlayerCommand(player_id, command),
             effect_outcomes,
-        );
+        });
     }
 
     pub fn handle_system_event(
@@ -105,7 +111,10 @@ impl<T: Game, C: NotifySender> GameServer<T, C> {
         self.room
             .handle_system_command(&mut self.clients.to_ref(), &mut eff, command.clone());
         let effect_outcomes = EffectOutcomes::from(eff);
-        repository.store_command(GameCommand::SystemCommand(command), effect_outcomes);
+        repository.store_command(RepositoryLogEntry {
+            command: GameCommand::SystemCommand(command),
+            effect_outcomes,
+        });
     }
 
     pub fn replay_conductor_event(
