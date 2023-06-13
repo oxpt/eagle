@@ -1,7 +1,14 @@
-use eagle_game::{game::Game, events::GameCommand};
+use eagle_game::{events::GameCommand, game::Game};
+use serde::{Deserialize, Serialize};
 
-use crate::EffectOutcomes;
+use crate::effect_outcomes::EffectOutcomes;
 
 pub trait Repository<T: Game>: Sized + 'static {
-    fn store_command(&mut self, command: GameCommand<T>, effect_outcomes: EffectOutcomes);
+    fn store_command(&mut self, entry: RepositoryLogEntry<T>);
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RepositoryLogEntry<T: Game> {
+    pub command: GameCommand<T>,
+    pub effect_outcomes: EffectOutcomes,
 }

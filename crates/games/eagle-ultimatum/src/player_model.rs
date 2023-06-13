@@ -8,6 +8,7 @@ use crate::{
     player_view::PlayerView,
 };
 
+#[derive(Debug, Default)]
 pub struct PlayerModel {}
 
 pub struct PlayerInput {}
@@ -19,7 +20,7 @@ impl Model for PlayerModel {
     type Command = UltimatumPlayerCommand;
 
     fn new() -> Self {
-        todo!()
+        Default::default()
     }
 
     fn handle_notify(&mut self, context: &mut impl ModelContext<Self>, notify: Self::Notify) {

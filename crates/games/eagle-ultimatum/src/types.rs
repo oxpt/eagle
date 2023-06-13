@@ -9,6 +9,12 @@ pub struct ProposalRange {
     max: u16,
 }
 
+impl Default for ProposalRange {
+    fn default() -> Self {
+        Self { min: 0, max: 100 }
+    }
+}
+
 impl ProposalRange {
     pub fn new(min: u16, max: u16) -> Result<Self, String> {
         if min > max {
@@ -22,14 +28,16 @@ impl ProposalRange {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ProposalOpenTiming {
+    #[default]
     Immediate,
     ByConductor, // Includes a consistent delay
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ControlVisibility {
+    #[default]
     Realtime,
     Hidden,
 }

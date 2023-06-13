@@ -15,6 +15,7 @@ use crate::{
     types::{ControlVisibility, Players, Proposal, ProposalOpenTiming},
 };
 
+#[derive(Debug)]
 pub struct UltimatumGame {
     config: UltimatumConfig,
     phase: Phase,

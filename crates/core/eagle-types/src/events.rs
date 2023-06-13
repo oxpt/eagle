@@ -8,6 +8,7 @@ pub enum SystemCommand {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct NotifyIndex(pub usize);
 
 impl NotifyIndex {
@@ -27,9 +28,14 @@ impl NotifyIndex {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CommandIndex(usize);
 
 impl CommandIndex {
+    pub fn next_from_len(len: usize) -> Self {
+        Self(len)
+    }
+
     pub fn from_len(len: usize) -> Self {
         Self(len - 1)
     }
@@ -61,14 +67,8 @@ mod server_event_index_test {
     use super::*;
     #[test]
     fn is_next_of() {
-        assert_eq!(
-            CommandIndex(1).is_next_of(CommandIndex(1)),
-            IsNextOf::Yes
-        );
-        assert_eq!(
-            CommandIndex(1).is_next_of(CommandIndex(2)),
-            IsNextOf::No
-        );
+        assert_eq!(CommandIndex(1).is_next_of(CommandIndex(1)), IsNextOf::Yes);
+        assert_eq!(CommandIndex(1).is_next_of(CommandIndex(2)), IsNextOf::No);
         assert_eq!(
             CommandIndex(3).is_next_of(CommandIndex(1)),
             IsNextOf::TooFarAhead

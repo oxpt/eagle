@@ -2,13 +2,15 @@ pub mod context;
 pub mod handle;
 pub mod render_context;
 
+use std::fmt::Debug;
+
 use erased_serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use self::{context::ModelContext, render_context::RenderContext};
 
-pub trait Model: Sized + 'static {
-    type View: 'static;
+pub trait Model: Debug + Sized + 'static {
+    type View: Debug + Clone + Serialize + DeserializeOwned + 'static;
     type Input: 'static;
     type Notify: Clone + Serialize + DeserializeOwned + 'static;
     type Command: Clone + Serialize + DeserializeOwned + 'static;

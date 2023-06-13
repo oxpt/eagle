@@ -1,1 +1,13 @@
 !/wrangler.toml
+
+!/package.json
+!/package-lock.json
+node_modules
+
+!/.eslintrc.json
+!/README.md
+!/next-env.d.ts
+!/next.config.js
+!/tsconfig.json
+!/tailwind.config.js
+!/postcss.config.js

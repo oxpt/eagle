@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{ControlVisibility, ProposalOpenTiming, ProposalRange};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 pub struct UltimatumConfig {
     pub proposal_open_timing: ProposalOpenTiming,
     pub control_visibility: ControlVisibility,
