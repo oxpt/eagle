@@ -4,32 +4,30 @@ use chrono::Utc;
 use eagle_game::clients::ClientsRef;
 use eagle_types::{
     client::{ClientState, User},
-    events::NotifyIndex,
-    ids::ClientId, messages::ServerToClientMessage,
+    ids::ClientId,
 };
-use serde::Serialize;
 
-use crate::notify_sender::NotifySender;
+use crate::channel::Channel;
 
-pub struct Clients<C: NotifySender> {
+pub struct Clients<C: Channel> {
     users: BTreeMap<User, BTreeMap<ClientId, Client<C>>>,
 }
 
-struct Client<C: NotifySender> {
+struct Client<C: Channel> {
     channel: C,
     state: ClientState,
 }
 
-impl<C: NotifySender> Clients<C> {
+impl<C: Channel> Clients<C> {
     pub(crate) fn new() -> Self {
         Self {
             users: Default::default(),
         }
     }
 
-    pub(crate) fn add_client(&mut self, user: User, channel: C) {
+    pub(crate) fn add_client(&mut self, user: User, client_id: ClientId, channel: C) {
         self.users.entry(user).or_insert_with(BTreeMap::new).insert(
-            channel.client_id(),
+            client_id,
             Client {
                 channel,
                 state: ClientState::default(),
@@ -43,27 +41,7 @@ impl<C: NotifySender> Clients<C> {
         }
     }
 
-    pub(crate) fn send_notify<T: Clone + Serialize>(
-        &mut self,
-        user: User,
-        index: NotifyIndex,
-        event: T,
-    ) {
-        if let Some(clients) = self.users.get_mut(&user) {
-            let mut failures = Vec::new();
-            for (_, client) in clients.iter_mut() {
-                // TODO: Don't send if the client already receives the event.
-                if let Err(_err) = client.channel.send(ServerToClientMessage {
-                    index,
-                    notify: event.clone(),
-                }) {
-                    failures.push(client.channel.client_id());
-                }
-            }
-        }
-    }
-
-    pub(crate) fn to_ref(&mut self) -> ClientsRef<'_> {
+    pub(crate) fn clients_ref(&mut self) -> ClientsRef<'_> {
         ClientsRef {
             inner: self,
             fn_get_client_states: |inner, user| {
@@ -74,12 +52,6 @@ impl<C: NotifySender> Clients<C> {
                     .get(&user)
                     .map(|clients| clients.iter().map(|(_, client)| client.state).collect())
                     .unwrap_or_default()
-            },
-            fn_send_server_event: |inner, user, index, event| {
-                inner
-                    .downcast_mut::<Clients<C>>()
-                    .unwrap()
-                    .send_notify(user, index, event)
             },
         }
     }

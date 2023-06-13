@@ -1,22 +1,22 @@
 pub mod context;
 pub mod handle;
+pub mod render_context;
 
 use std::fmt::Debug;
 
 use eagle_types::{events::SystemCommand, ids::PlayerId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::model::Model;
 use context::GameContext;
+
+use self::render_context::RenderContext;
 
 pub trait Game: Debug + Sized + 'static {
     type Config: Default + Debug + Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorNotify: Debug + Clone + Serialize + DeserializeOwned + 'static;
     type ConductorCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
-    type PlayerNotify: Debug + Clone + Serialize + DeserializeOwned + 'static;
     type PlayerCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
-    type Conductor: Model<Notify = Self::ConductorNotify>;
-    type Player: Model<Notify = Self::PlayerNotify>;
+    type ConductorView: Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
+    type PlayerView: Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
 
     fn new(config: Self::Config) -> Self;
 
@@ -40,4 +40,8 @@ pub trait Game: Debug + Sized + 'static {
         context: &mut impl GameContext<Self>,
         command: SystemCommand,
     );
+
+    fn render_conductor(&self, context: &impl RenderContext) -> Self::ConductorView;
+
+    fn render_player(&self, context: &impl RenderContext, player_id: PlayerId) -> Self::PlayerView;
 }

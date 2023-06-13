@@ -1,6 +1,5 @@
 pub(crate) mod command_history;
 pub(crate) mod game_instances;
-pub(crate) mod notify_history;
 
 use eagle_types::{
     events::SystemCommand,
@@ -9,17 +8,16 @@ use eagle_types::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use self::{game_instances::GameInstances, command_history::CommandHistory, notify_history::NotifyHistory};
+use self::{command_history::CommandHistory, game_instances::GameInstances};
 use crate::{
     clients::ClientsRef,
     eff_handler::EffHandler,
-    game::{handle::GameHandle, Game, context::GameContextImpl},
+    game::{context::GameContextImpl, handle::GameHandle, Game},
 };
 
 pub struct Room<T: Game> {
     game_handle: GameHandle<T>,
     command_history: CommandHistory,
-    notify_history: NotifyHistory<T>,
     game_instances: GameInstances,
     rng: ChaCha8Rng,
     _phantom: std::marker::PhantomData<T>,
@@ -34,7 +32,6 @@ impl<T: Game> Room<T> {
         let mut room = Room {
             game_handle: GameHandle::new(root_game_instance_id),
             command_history: CommandHistory::new(),
-            notify_history: NotifyHistory::new(),
             game_instances: GameInstances::new(),
             rng: ChaCha8Rng::from_seed(rand_seed),
             _phantom: std::marker::PhantomData,
@@ -51,14 +48,13 @@ impl<T: Game> Room<T> {
         eff: &mut EffHandler,
         mutate: impl FnOnce(&mut GameContextImpl<T>, &mut T),
     ) {
-        let game = self.game_instances.get_game_instance_mut(self.game_handle);
+        let game = self.game_instances.get_game_instance(self.game_handle);
 
         let mut ctx = GameContextImpl::new(
             self.game_handle,
             clients,
             eff,
             &mut self.command_history,
-            &mut self.notify_history,
             &mut self.game_instances,
             &mut self.rng,
         );
@@ -101,16 +97,5 @@ impl<T: Game> Room<T> {
         self.mutate_game(clients, eff, |ctx, game| {
             ctx.handle_system_command(handle, game, command);
         });
-    }
-
-    pub fn get_conductor_notifies(&mut self) -> impl Iterator<Item = &T::ConductorNotify> {
-        self.notify_history.get_conductor_notifies()
-    }
-
-    pub fn get_player_notifies(
-        &mut self,
-        player_id: PlayerId,
-    ) -> impl Iterator<Item = &T::PlayerNotify> {
-        self.notify_history.get_player_notifies(player_id)
     }
 }

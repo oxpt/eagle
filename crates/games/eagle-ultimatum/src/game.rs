@@ -4,6 +4,7 @@ use eagle_game::prelude::*;
 
 use crate::{
     conductor_model::UltimatumConductor,
+    conductor_view::ConductorView,
     config::UltimatumConfig,
     error::UltimatumError,
     events::{
@@ -12,6 +13,7 @@ use crate::{
     },
     phase::Phase,
     player_model::PlayerModel,
+    player_view::PlayerView,
     types::{ControlVisibility, Players, Proposal, ProposalOpenTiming},
 };
 
@@ -19,11 +21,13 @@ use crate::{
 pub struct UltimatumGame {
     config: UltimatumConfig,
     phase: Phase,
+    conductor: UltimatumConductor,
+    players: Map<PlayerId, PlayerModel>,
 }
 
 pub(crate) fn standby(context: &mut impl GameContext<UltimatumGame>, players: Players) -> Phase {
-    context.push_player_notify(players.proposer, UltimatumPlayerNotify::YouAreProposer);
-    context.push_player_notify(players.responder, UltimatumPlayerNotify::YouAreResponder);
+    // context.push_player_notify(players.proposer, UltimatumPlayerNotify::YouAreProposer);
+    // context.push_player_notify(players.responder, UltimatumPlayerNotify::YouAreResponder);
     return Phase::Standby { players };
 }
 
@@ -32,25 +36,23 @@ pub(crate) fn open_proposal(
     players: Players,
     proposal: Proposal,
 ) -> Phase {
-    context.push_player_notify(
-        players.proposer,
-        UltimatumPlayerNotify::OpenProposal(proposal),
-    );
-    context.push_player_notify(
-        players.responder,
-        UltimatumPlayerNotify::OpenProposal(proposal),
-    );
+    // context.push_player_notify(
+    //     players.proposer,
+    //     UltimatumPlayerNotify::OpenProposal(proposal),
+    // );
+    // context.push_player_notify(
+    //     players.responder,
+    //     UltimatumPlayerNotify::OpenProposal(proposal),
+    // );
     return Phase::Responding { players, proposal };
 }
 
 impl Game for UltimatumGame {
     type Config = UltimatumConfig;
-    type ConductorNotify = UltimatumConductorNotify;
     type ConductorCommand = UltimatumConductorCommand;
-    type PlayerNotify = UltimatumPlayerNotify;
     type PlayerCommand = UltimatumPlayerCommand;
-    type Conductor = UltimatumConductor;
-    type Player = PlayerModel;
+    type ConductorView = ConductorView;
+    type PlayerView = PlayerView;
 
     fn new(config: Self::Config) -> Self {
         Self {
@@ -59,6 +61,8 @@ impl Game for UltimatumGame {
                 proposer: None,
                 responder: None,
             },
+            conductor: UltimatumConductor::new(),
+            players: Map::new(),
         }
     }
 
@@ -106,8 +110,8 @@ impl Game for UltimatumGame {
                 }
             }
             (Phase::Standby { players }, Command::StartGame) => {
-                context.push_player_notify(players.proposer, UltimatumPlayerNotify::StartGame);
-                context.push_player_notify(players.responder, UltimatumPlayerNotify::StartGame);
+                // context.push_player_notify(players.proposer, UltimatumPlayerNotify::StartGame);
+                // context.push_player_notify(players.responder, UltimatumPlayerNotify::StartGame);
                 self.phase = Phase::Requesting {
                     players: *players,
                     proposal: None,
@@ -116,12 +120,14 @@ impl Game for UltimatumGame {
             (Phase::ProposalHidden { players, proposal }, Command::OpenProposal) => {
                 self.phase = open_proposal(context, *players, *proposal)
             }
-            (phase, command) => context.push_conductor_notify(UltimatumConductorNotify::Error(
-                UltimatumError::UnexpectedConductorCommand {
-                    phase: phase.clone(),
-                    command,
-                },
-            )),
+            (phase, command) => {
+                // context.push_conductor_notify(UltimatumConductorNotify::Error(
+                //     UltimatumError::UnexpectedConductorCommand {
+                //         phase: phase.clone(),
+                //         command,
+                //     },
+                // ))
+            }
         };
     }
 
@@ -135,12 +141,12 @@ impl Game for UltimatumGame {
         match (&mut self.phase, command) {
             (Phase::Requesting { proposal, players }, Command::UpdateProposal(new)) => {
                 *proposal = Some(new);
-                if self.config.control_visibility == ControlVisibility::Realtime {
-                    context.push_player_notify(
-                        players.responder,
-                        UltimatumPlayerNotify::UpdateProposal(*proposal),
-                    );
-                }
+                // if self.config.control_visibility == ControlVisibility::Realtime {
+                //     context.push_player_notify(
+                //         players.responder,
+                //         UltimatumPlayerNotify::UpdateProposal(*proposal),
+                //     );
+                // }
             }
             (Phase::Requesting { players, .. }, Command::SubmitProposal(proposal)) => {
                 match self.config.proposal_open_timing {
@@ -156,23 +162,25 @@ impl Game for UltimatumGame {
                 }
             }
             (Phase::Responding { players, proposal }, Command::Respond(response)) => {
-                context.push_player_notify(
-                    players.proposer,
-                    UltimatumPlayerNotify::Responded(response),
-                );
+                // context.push_player_notify(
+                //     players.proposer,
+                //     UltimatumPlayerNotify::Responded(response),
+                // );
                 self.phase = Phase::Result {
                     players: *players,
                     proposal: *proposal,
                     response,
                 };
             }
-            (phase, command) => context.push_conductor_notify(UltimatumConductorNotify::Error(
-                UltimatumError::UnexpectedPlayerCommand {
-                    phase: phase.clone(),
-                    player_id,
-                    command,
-                },
-            )),
+            (phase, command) => {
+                // context.push_conductor_notify(UltimatumConductorNotify::Error(
+                //     UltimatumError::UnexpectedPlayerCommand {
+                //         phase: phase.clone(),
+                //         player_id,
+                //         command,
+                //     },
+                // ))
+            }
         }
     }
 
@@ -181,6 +189,21 @@ impl Game for UltimatumGame {
         _context: &mut impl GameContext<Self>,
         _command: SystemCommand,
     ) {
+        todo!()
+    }
+
+    fn render_conductor(
+        &self,
+        context: &impl eagle_game::game::render_context::RenderContext,
+    ) -> Self::ConductorView {
+        todo!()
+    }
+
+    fn render_player(
+        &self,
+        context: &impl eagle_game::game::render_context::RenderContext,
+        player_id: PlayerId,
+    ) -> Self::PlayerView {
         todo!()
     }
 }
