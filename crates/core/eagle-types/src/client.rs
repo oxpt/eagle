@@ -1,16 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{events::NotifyIndex, ids::PlayerId};
+use crate::ids::PlayerId;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum User {
     Conductor,
     Player(PlayerId),
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClientParams {
-    pub latest_received_server_event: Option<NotifyIndex>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

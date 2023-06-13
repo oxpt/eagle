@@ -5,6 +5,7 @@ use eagle_types::ids::GameInstanceId;
 use crate::game::{handle::GameHandle, Game};
 
 #[derive(Default)]
+// This exists for preventing sub-games from being mutated by the parent game.
 pub(crate) struct GameInstances {
     game_instances: BTreeMap<GameInstanceId, Rc<dyn Any>>,
 }
@@ -19,16 +20,16 @@ impl GameInstances {
         self.game_instances
             .insert(handle.game_instance_id, Rc::new(RefCell::new(game)));
     }
-    pub fn get_game_instance<T: Game>(&self, handle: GameHandle<T>) -> &RefCell<T> {
+    pub fn get_game_instance_ref<T: Game>(&self, handle: GameHandle<T>) -> &RefCell<T> {
         self.game_instances
             .get(&handle.game_instance_id)
             .unwrap()
             .downcast_ref::<RefCell<T>>()
             .unwrap()
     }
-    pub fn get_game_instance_mut<T: Game>(&mut self, handle: GameHandle<T>) -> Rc<RefCell<T>> {
+    pub fn get_game_instance<T: Game>(&self, handle: GameHandle<T>) -> Rc<RefCell<T>> {
         self.game_instances
-            .get_mut(&handle.game_instance_id)
+            .get(&handle.game_instance_id)
             .unwrap()
             .clone()
             .downcast::<RefCell<T>>()
