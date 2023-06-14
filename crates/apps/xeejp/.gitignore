@@ -11,3 +11,7 @@ node_modules
 !/tsconfig.json
 !/tailwind.config.js
 !/postcss.config.js
+
+!/app/**/*.ts
+!/app/**/*.tsx
+!/app/**/*.css

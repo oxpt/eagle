@@ -19,7 +19,7 @@ impl<T: Game> GameLog<T> {
 }
 
 impl<T: Game> Repository<T> for GameLog<T> {
-    fn store_command(&mut self, entry: RepositoryLogEntry<T>) {
+    fn store_entry(&mut self, entry: RepositoryLogEntry<T>) {
         self.entries.push(entry);
     }
 }
