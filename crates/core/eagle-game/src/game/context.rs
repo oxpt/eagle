@@ -17,7 +17,7 @@ use crate::{
 
 pub(crate) struct GameContextImpl<'a, 'client, T: Game> {
     game_handle: GameHandle<T>,
-    clients: &'a mut ClientsRef<'client>,
+    clients: &'a ClientsRef<'client>,
     eff: &'a mut EffHandler,
     command_history: &'a mut CommandHistory,
     game_instances: &'a mut GameInstances,
@@ -27,7 +27,7 @@ pub(crate) struct GameContextImpl<'a, 'client, T: Game> {
 impl<T: Game> GameContextImpl<'_, '_, T> {
     pub(crate) fn new<'a, 'clients>(
         game_handle: GameHandle<T>,
-        clients: &'a mut ClientsRef<'clients>,
+        clients: &'a ClientsRef<'clients>,
         eff: &'a mut EffHandler,
         command_history: &'a mut CommandHistory,
         game_instances: &'a mut GameInstances,

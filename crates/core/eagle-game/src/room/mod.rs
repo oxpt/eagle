@@ -12,7 +12,7 @@ use self::{command_history::CommandHistory, game_instances::GameInstances};
 use crate::{
     clients::ClientsRef,
     eff_handler::EffHandler,
-    game::{context::GameContextImpl, handle::GameHandle, Game},
+    game::{context::GameContextImpl, handle::GameHandle, render_context::RenderContextImpl, Game},
 };
 
 pub struct Room<T: Game> {
@@ -97,5 +97,23 @@ impl<T: Game> Room<T> {
         self.mutate_game(clients, eff, |ctx, game| {
             ctx.handle_system_command(handle, game, command);
         });
+    }
+
+    pub fn render_conductor(&self) -> T::ConductorView {
+        let game = self.game_instances.get_game_instance(self.game_handle);
+        let ctx = RenderContextImpl {
+            game_instances: &self.game_instances,
+        };
+        let view = game.borrow().render_conductor(&ctx);
+        view
+    }
+
+    pub fn render_player(&self, player_id: PlayerId) -> T::PlayerView {
+        let game = self.game_instances.get_game_instance(self.game_handle);
+        let ctx = RenderContextImpl {
+            game_instances: &self.game_instances,
+        };
+        let view = game.borrow().render_player(&ctx, player_id);
+        view
     }
 }

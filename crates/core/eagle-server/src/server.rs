@@ -7,18 +7,21 @@ use eagle_types::{
     client::User,
     events::SystemCommand,
     ids::{ClientId, PlayerId},
+    messages::{ClientToServerMessage, ServerToClientMessage},
 };
 
 use crate::{
     channel::Channel,
     clients::Clients,
     effect_outcomes::EffectOutcomes,
+    last_view::{LastViews, UpdateResult},
     repository::{Repository, RepositoryLogEntry},
 };
 
 pub struct GameServer<T: Game, C: Channel> {
     clients: Clients<C>,
     room: Room<T>,
+    last_views: LastViews<T>,
 }
 
 impl<T: Game, C: Channel> GameServer<T, C> {
@@ -26,6 +29,7 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         Self {
             clients: Clients::new(),
             room,
+            last_views: Default::default(),
         }
     }
 
@@ -39,29 +43,67 @@ impl<T: Game, C: Channel> GameServer<T, C> {
     }
 
     pub fn remove_client(&mut self, user: User, client_id: ClientId) {
-        self.clients.remove_channel(user, client_id);
+        self.clients.remove_client(user, client_id);
+    }
+
+    fn notify_view(&mut self) {
+        let conductor_view = self.room.render_conductor();
+        if self.last_views.update_conductor_view(&conductor_view) == UpdateResult::Updated {
+            for client in self.clients.conductor_clients() {
+                if let Err(_err) = client.send_message(ServerToClientMessage::Notify {
+                    view: conductor_view.clone(),
+                }) {
+                    // TODO: log err
+                }
+            }
+        }
+        for (player_id, clients) in self.clients.players() {
+            let player_view = self.room.render_player(player_id);
+            if self.last_views.update_player_view(player_id, &player_view) == UpdateResult::Updated
+            {
+                for client in clients {
+                    if let Err(_err) = client.send_message(ServerToClientMessage::Notify {
+                        view: player_view.clone(),
+                    }) {
+                        // TODO: log err
+                    }
+                }
+            }
+        }
     }
 
     pub fn handle_conductor_command(
         &mut self,
         repository: &mut impl Repository<T>,
         client_id: ClientId,
-        command: T::ConductorCommand,
+        message: ClientToServerMessage<T::ConductorCommand>,
     ) {
-        // TODO: skip already received events
-        let mut eff = EffHandler::default();
-        self.room.handle_conductor_command(
-            &mut self.clients.clients_ref(),
-            &mut eff,
-            command.clone(),
-        );
-        let effect_outcomes = EffectOutcomes::from(eff);
-        self.clients
-            .update_last_successful_communication(User::Conductor, client_id);
-        repository.store_command(RepositoryLogEntry {
-            command: GameCommand::ConductorCommand(command),
-            effect_outcomes,
-        });
+        match message {
+            ClientToServerMessage::Command { index, command } => {
+                let mut eff = EffHandler::default();
+                self.room.handle_conductor_command(
+                    &mut self.clients.clients_ref(),
+                    &mut eff,
+                    command.clone(),
+                );
+                let effect_outcomes = EffectOutcomes::from(eff);
+                self.clients
+                    .update_last_successful_communication(User::Conductor, client_id);
+                repository.store_command(RepositoryLogEntry {
+                    command: GameCommand::ConductorCommand(command),
+                    effect_outcomes,
+                });
+                if let Some(client) = self.clients.get_client(User::Conductor, client_id) {
+                    if let Err(_err) = client
+                        .send_message::<T::ConductorCommand>(ServerToClientMessage::Ack { index })
+                    {
+                        // TODO: log err
+                    }
+                }
+                self.notify_view()
+            }
+            _ => todo!(),
+        };
     }
 
     pub fn handle_player_command(
@@ -69,23 +111,36 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         repository: &mut impl Repository<T>,
         client_id: ClientId,
         player_id: PlayerId,
-        command: T::PlayerCommand,
+        message: ClientToServerMessage<T::PlayerCommand>,
     ) {
-        // TODO: skip already received events
-        let mut eff = EffHandler::default();
-        self.room.handle_player_command(
-            &mut self.clients.clients_ref(),
-            &mut eff,
-            player_id,
-            command.clone(),
-        );
-        let effect_outcomes = EffectOutcomes::from(eff);
-        self.clients
-            .update_last_successful_communication(User::Player(player_id), client_id);
-        repository.store_command(RepositoryLogEntry {
-            command: GameCommand::PlayerCommand(player_id, command),
-            effect_outcomes,
-        });
+        match message {
+            ClientToServerMessage::Command { index, command } => {
+                // TODO: skip if index indicates already processed
+                let mut eff = EffHandler::default();
+                self.room.handle_player_command(
+                    &mut self.clients.clients_ref(),
+                    &mut eff,
+                    player_id,
+                    command.clone(),
+                );
+                let effect_outcomes = EffectOutcomes::from(eff);
+                self.clients
+                    .update_last_successful_communication(User::Player(player_id), client_id);
+                repository.store_command(RepositoryLogEntry {
+                    command: GameCommand::PlayerCommand(player_id, command),
+                    effect_outcomes,
+                });
+                if let Some(client) = self.clients.get_client(User::Player(player_id), client_id) {
+                    if let Err(_err) = client
+                        .send_message::<T::PlayerCommand>(ServerToClientMessage::Ack { index })
+                    {
+                        // TODO: log err
+                    }
+                }
+                self.notify_view()
+            }
+            _ => todo!(),
+        }
     }
 
     pub fn handle_system_event(
@@ -101,6 +156,7 @@ impl<T: Game, C: Channel> GameServer<T, C> {
             command: GameCommand::SystemCommand(command),
             effect_outcomes,
         });
+        self.notify_view()
     }
 
     pub fn replay_conductor_event(
@@ -111,6 +167,7 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         let mut eff = effect_outcomes.into();
         self.room
             .handle_conductor_command(&mut self.clients.clients_ref(), &mut eff, event);
+        // no notify
     }
 
     pub fn replay_player_event(
@@ -126,11 +183,13 @@ impl<T: Game, C: Channel> GameServer<T, C> {
             player_id,
             event,
         );
+        // no notify
     }
 
     pub fn replay_system_event(&mut self, event: SystemCommand, effect_outcomes: EffectOutcomes) {
         let mut eff = effect_outcomes.into();
         self.room
             .handle_system_command(&mut self.clients.clients_ref(), &mut eff, event);
+        // no notify
     }
 }
