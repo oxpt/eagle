@@ -1,12 +1,13 @@
-use eagle_types::ids::GameInstanceId;
-use eagle_ultimatum::{config::UltimatumConfig, game::UltimatumGame};
+use eagle_ultimatum::game::UltimatumGame;
 use worker::*;
 
 use crate::game::WorkerGame;
 
+#[cfg(feature = "worker")]
 #[durable_object]
 pub struct Ultimatum(WorkerGame<UltimatumGame>);
 
+#[cfg(feature = "worker")]
 #[durable_object]
 impl DurableObject for Ultimatum {
     fn new(state: State, env: Env) -> Self {

@@ -1,9 +1,18 @@
+# wrangler
 !/wrangler.toml
+/build
+.wrangler
 
+# wasm-pack
+/pkg
+
+# npm
 !/package.json
 !/package-lock.json
 node_modules
 
+# next
+.next
 !/.eslintrc.json
 !/README.md
 !/next-env.d.ts
@@ -12,6 +21,7 @@ node_modules
 !/tailwind.config.js
 !/postcss.config.js
 
+# source code
 !/app/**/*.ts
 !/app/**/*.tsx
 !/app/**/*.css

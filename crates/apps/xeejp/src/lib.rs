@@ -7,6 +7,7 @@ use worker::*;
 
 const KV_NS_CONDUCTOR_CLIENT_IDS: &str = "CONDUCTOR_CLIENT_IDS";
 
+#[cfg(feature = "worker")]
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let router = Router::new();
