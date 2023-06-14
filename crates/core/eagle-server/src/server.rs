@@ -1,8 +1,4 @@
-use eagle_game::{
-    eff_handler::EffHandler,
-    prelude::{Game, GameCommand},
-    room::Room,
-};
+use eagle_game::{eff_handler::EffHandler, prelude::Game, room::Room};
 use eagle_types::{
     client::User,
     events::SystemCommand,
@@ -15,7 +11,7 @@ use crate::{
     clients::Clients,
     effect_outcomes::EffectOutcomes,
     last_view::{LastViews, UpdateResult},
-    repository::{Repository, RepositoryLogEntry},
+    repository::{CommandLogEntry, Repository, RepositoryLogEntry},
 };
 
 pub struct GameServer<T: Game, C: Channel> {
@@ -80,6 +76,9 @@ impl<T: Game, C: Channel> GameServer<T, C> {
     ) {
         match message {
             ClientToServerMessage::Command { index, command } => {
+                if repository.is_command_handled(client_id, index) {
+                    return;
+                }
                 let mut eff = EffHandler::default();
                 self.room.handle_conductor_command(
                     &mut self.clients.clients_ref(),
@@ -89,9 +88,12 @@ impl<T: Game, C: Channel> GameServer<T, C> {
                 let effect_outcomes = EffectOutcomes::from(eff);
                 self.clients
                     .update_last_successful_communication(User::Conductor, client_id);
-                repository.store_command(RepositoryLogEntry {
-                    command: GameCommand::ConductorCommand(command),
-                    effect_outcomes,
+                repository.store_entry(RepositoryLogEntry::ConductorCommand {
+                    index,
+                    entry: CommandLogEntry {
+                        command,
+                        effect_outcomes,
+                    },
                 });
                 if let Some(client) = self.clients.get_client(User::Conductor, client_id) {
                     if let Err(_err) = client
@@ -115,7 +117,9 @@ impl<T: Game, C: Channel> GameServer<T, C> {
     ) {
         match message {
             ClientToServerMessage::Command { index, command } => {
-                // TODO: skip if index indicates already processed
+                if repository.is_command_handled(client_id, index) {
+                    return;
+                }
                 let mut eff = EffHandler::default();
                 self.room.handle_player_command(
                     &mut self.clients.clients_ref(),
@@ -126,9 +130,13 @@ impl<T: Game, C: Channel> GameServer<T, C> {
                 let effect_outcomes = EffectOutcomes::from(eff);
                 self.clients
                     .update_last_successful_communication(User::Player(player_id), client_id);
-                repository.store_command(RepositoryLogEntry {
-                    command: GameCommand::PlayerCommand(player_id, command),
-                    effect_outcomes,
+                repository.store_entry(RepositoryLogEntry::PlayerCommand {
+                    player_id,
+                    index,
+                    entry: CommandLogEntry {
+                        command,
+                        effect_outcomes,
+                    },
                 });
                 if let Some(client) = self.clients.get_client(User::Player(player_id), client_id) {
                     if let Err(_err) = client
@@ -152,10 +160,10 @@ impl<T: Game, C: Channel> GameServer<T, C> {
         self.room
             .handle_system_command(&mut self.clients.clients_ref(), &mut eff, command.clone());
         let effect_outcomes = EffectOutcomes::from(eff);
-        repository.store_command(RepositoryLogEntry {
-            command: GameCommand::SystemCommand(command),
+        repository.store_entry(RepositoryLogEntry::SystemCommand(CommandLogEntry {
+            command,
             effect_outcomes,
-        });
+        }));
         self.notify_view()
     }
 

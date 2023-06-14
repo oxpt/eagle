@@ -3,7 +3,9 @@ use serde::Serialize;
 
 pub trait Channel: 'static {
     type Error;
-    fn send_message<T: Serialize>(&self, view: ServerToClientMessage<T>)
-        -> Result<(), Self::Error>;
+    fn send_message<T: Serialize>(
+        &self,
+        message: ServerToClientMessage<T>,
+    ) -> Result<(), Self::Error>;
     fn client_state(&self) -> ClientState;
 }

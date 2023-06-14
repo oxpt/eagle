@@ -1,12 +1,8 @@
 name = "worker-rust"
-main = "../../../target/eagle-server/shim.mjs"
+main = "build/worker/shim.mjs"
 
 [build]
 command = "cargo install -q worker-build && worker-build --release"
 
 [durable_objects]
 bindings = [{ name = "Ultimatum", class_name = "Ultimatum" }]
-
-[[migrations]]
-tag = "v1"                 # Should be unique for each entry
-new_classes = ["Chatroom"] # Array of new classes
