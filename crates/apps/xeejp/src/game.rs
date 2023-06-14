@@ -5,6 +5,7 @@ use eagle_server::{channel::Channel, server::GameServer};
 use eagle_types::{
     client::User,
     ids::{ClientId, GameInstanceId, PlayerId},
+    messages::{ClientToServerMessage, ServerToClientMessage},
 };
 
 use futures::{lock::Mutex, StreamExt};
@@ -27,7 +28,7 @@ type GameState<T> = Arc<Mutex<Data<T>>>;
 impl Channel for WebSocketConnection {
     type Error = worker::Error;
 
-    fn notify_view<T: serde::Serialize>(&mut self, view: T) -> Result<()> {
+    fn send_message<T: serde::Serialize>(&self, view: ServerToClientMessage<T>) -> Result<()> {
         self.websocket.send(&view)
     }
 
@@ -130,7 +131,9 @@ async fn websocket<T: Game>(
                 WebsocketEvent::Message(msg) => match user {
                     User::Conductor => {
                         let mut data = state.lock().await;
-                        let conductor_command = msg.json::<T::ConductorCommand>().unwrap();
+                        let conductor_command = msg
+                            .json::<ClientToServerMessage<T::ConductorCommand>>()
+                            .unwrap();
                         let data = data.deref_mut();
                         data.server.handle_conductor_command(
                             &mut data.state,
@@ -140,7 +143,9 @@ async fn websocket<T: Game>(
                     }
                     User::Player(player_id) => {
                         let mut data = state.lock().await;
-                        let player_command = msg.json::<T::PlayerCommand>().unwrap();
+                        let player_command = msg
+                            .json::<ClientToServerMessage<T::PlayerCommand>>()
+                            .unwrap();
                         let data = data.deref_mut();
                         data.server.handle_player_command(
                             &mut data.state,

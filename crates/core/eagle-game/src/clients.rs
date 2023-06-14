@@ -3,7 +3,7 @@ use std::any::Any;
 use eagle_types::client::{ClientState, User};
 
 pub struct ClientsRef<'a> {
-    pub inner: &'a mut dyn Any,
+    pub inner: &'a dyn Any,
     pub fn_get_client_states: fn(&dyn Any, User) -> Vec<ClientState>,
 }
 
