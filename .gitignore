@@ -27,3 +27,6 @@
 
 # global allow
 !.gitignore
+
+# eagle-ui
+!/crates/apps/xeejp/**/*.*
