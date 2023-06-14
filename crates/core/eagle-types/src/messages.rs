@@ -2,16 +2,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ClientToServerMessage<T> {
-    Command { index: CommandIndex, command: T },
+    Command {
+        index: ClientCommandIndex,
+        command: T,
+    },
     Ping,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CommandIndex(usize);
+pub struct ClientCommandIndex(usize);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ServerToClientMessage<T> {
-    Ack { index: CommandIndex },
+    Ack { index: ClientCommandIndex },
     Notify { view: T },
     Pong,
 }

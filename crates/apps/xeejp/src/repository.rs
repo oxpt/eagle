@@ -22,4 +22,12 @@ impl<T: Game> Repository<T> for GameLog<T> {
     fn store_entry(&mut self, entry: RepositoryLogEntry<T>) {
         self.entries.push(entry);
     }
+
+    fn is_command_handled(
+        &self,
+        client_id: eagle_types::ids::ClientId,
+        index: eagle_types::messages::ClientCommandIndex,
+    ) -> bool {
+        todo!()
+    }
 }

@@ -13,6 +13,10 @@ wasm-opt = false
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = ["worker"]
+worker = []
+
 [dependencies]
 eagle-types = { workspace = true }
 eagle-game = { workspace = true }
