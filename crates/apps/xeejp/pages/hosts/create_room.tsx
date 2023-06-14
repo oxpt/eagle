@@ -1,6 +1,13 @@
+import { useRouter } from 'next/router';
 import TitleHeader from '@/components/titleHeader';
 
 export default function CreateRoom() {
+  const router = useRouter();
+  const handleClick = (e) => {
+    e.preventDefault();
+    router.push('/hosts/settings');
+  };
+
   return (
     <div>
       <TitleHeader title="実験モード選択" subTitle="実験モードを選択してください。" />
@@ -12,7 +19,7 @@ export default function CreateRoom() {
             name="mode"
             value="classroom"
             className="hidden peer"
-            required
+            onClick={handleClick}
           />
           <label
             htmlFor="classroom"
@@ -44,6 +51,7 @@ export default function CreateRoom() {
             name="mode"
             value="laboratory"
             className="hidden peer"
+            onClick={handleClick}
           />
           <label
             htmlFor="laboratory"
