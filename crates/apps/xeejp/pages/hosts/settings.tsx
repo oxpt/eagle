@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import TitleHeader from '@/components/titleHeader';
 
@@ -94,10 +95,10 @@ export default function Settings() {
                 </td>
                 <td className="hidden py-4 text-sm text-gray-500 sm:table-cell">{item.games}</td>
                 <td className="py-4 text-sm font-medium text-right">
-                  <a href="/" className="text-blue-700 hover:text-blue-900">
+                  <Link href="/" className="text-blue-700 hover:text-blue-900">
                     {setting.select}
                     <span className="sr-only">{item.id}</span>
-                  </a>
+                  </Link>
                 </td>
               </tr>
             ))}

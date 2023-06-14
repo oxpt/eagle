@@ -109,7 +109,7 @@ export default function HostCreateRoom2() {
                 <td className="py-4 text-sm font-medium">
                   <input
                     type="text"
-                    value={item.guest_id}
+                    defaultValue={item.guest_id}
                     id="guest_id"
                     className="block w-full p-2 m-0 text-sm text-gray-900 rounded bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
                     placeholder={item.guest_id}
@@ -118,7 +118,7 @@ export default function HostCreateRoom2() {
                 <td className="py-4 text-sm font-medium">
                   <input
                     type="text"
-                    value={item.guest_name}
+                    defaultValue={item.guest_name}
                     id="guest_name"
                     className="block w-full p-2 m-0 text-sm text-gray-900 rounded bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
                     placeholder={item.guest_name}
@@ -137,6 +137,7 @@ export default function HostCreateRoom2() {
                     name="comments"
                     type="checkbox"
                     checked={item.kickout}
+                    onChange={handleClick}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
                   />
                 </td>
@@ -177,7 +178,7 @@ export default function HostCreateRoom2() {
           <input type="file" id="dropzone-file" name="file" className="hidden peer" accept=".csv" />
           <label
             htmlFor="dropzone-file"
-            className="inline-flex items-center justify-between  p-4 w-full border border-gray-300 rounded-lg cursor-pointer   peer-checked:border-blue-700 peer-checked:text-blue-700 hover:text-gray-700 hover:bg-gray-100"
+            className="inline-flex items-center justify-between p-4 w-full border border-gray-300 rounded-lg cursor-pointer peer-checked:border-blue-700 peer-checked:text-blue-700 hover:text-gray-700 hover:bg-gray-100"
           >
             <div className="block">
               <div className="w-full text-lg font-semibold">被験者IDリストを読み込む</div>
@@ -202,7 +203,7 @@ export default function HostCreateRoom2() {
             type="button"
             id="laboratory"
             name="mode"
-            value="laboratory"
+            defaultValue="laboratory"
             className="hidden peer"
             onClick={handleClick}
           />

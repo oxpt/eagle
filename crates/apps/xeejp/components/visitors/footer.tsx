@@ -63,7 +63,10 @@ export default function Footer() {
           ))}
         </div>
         <p className="mt-10 text-center text-xs leading-5 text-gray-500">
-          &copy; 2023 <Link href="https://xee.jp/">Ryohei Hayashi</Link>. All Rights Reserved.
+          &copy; 2023
+          {' '}
+          <Link href="https://xee.jp/">Ryohei Hayashi</Link>
+          . All Rights Reserved.
         </p>
       </div>
     </footer>
