@@ -24,3 +24,7 @@ node_modules
 # source codes
 !/pages/**/*.tsx
 !/components/**/*.tsx
+
+# assets
+!/public/*.png
+!/public/*.ico
