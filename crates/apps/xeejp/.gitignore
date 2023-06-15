@@ -21,7 +21,10 @@ node_modules
 !/tailwind.config.js
 !/postcss.config.js
 
-# source code
-!/app/**/*.ts
-!/app/**/*.tsx
-!/app/**/*.css
+# source codes
+!/pages/**/*.tsx
+!/components/**/*.tsx
+
+# assets
+!/public/*.png
+!/public/*.ico

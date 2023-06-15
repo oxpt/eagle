@@ -1,25 +1,42 @@
 {
-  "name": "xeejp",
+  "name": "eagle-xeejp",
   "version": "0.1.0",
+  "description": "A Game Engine for Academic Large-scale Experiments",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint --fix",
+    "format": "prettier --write --ignore-path .gitignore \"./**/*.{js,jsx,ts,tsx,json}\""
   },
   "dependencies": {
+    "@headlessui/react": "^1.7.15",
+    "@heroicons/react": "^2.0.18",
     "@types/node": "20.3.1",
     "@types/react": "18.2.12",
     "@types/react-dom": "18.2.5",
-    "autoprefixer": "10.4.14",
-    "eslint": "8.42.0",
     "eslint-config-next": "13.4.5",
+    "flag-icons": "^6.7.0",
     "next": "13.4.5",
     "postcss": "8.4.24",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "tailwindcss": "3.3.2",
-    "typescript": "5.1.3"
+    "tailwindcss": "^3.3.2"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.59.11",
+    "@typescript-eslint/parser": "^5.59.11",
+    "autoprefixer": "^10.4.14",
+    "eslint": "^8.42.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-import": "^2.25.3",
+    "eslint-plugin-jsx-a11y": "^6.5.1",
+    "eslint-plugin-react": "^7.28.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "postcss-import": "^15.1.0",
+    "prettier": "^2.8.8",
+    "typescript": "^5.1.3"
   }
 }
