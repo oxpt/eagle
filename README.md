@@ -15,6 +15,13 @@
 - Secure by default.
 - Platform agnostic.
 
+## Development
+
+```sh
+tools/wasm-pack.sh build
+tools/next.sh dev
+```
+
 ## License
 
 Dual-licensed under:
