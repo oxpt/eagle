@@ -27,3 +27,10 @@
 
 # global allow
 !.gitignore
+
+# next
+!crates/apps/xeejp/
+crates/apps/xeejp/node_modules
+crates/apps/xeejp/.next
+
+.DS_Store
