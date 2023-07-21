@@ -3,11 +3,9 @@ use worker::*;
 
 use crate::game::WorkerGame;
 
-#[cfg(feature = "worker")]
 #[durable_object]
 pub struct Ultimatum(WorkerGame<UltimatumGame>);
 
-#[cfg(feature = "worker")]
 #[durable_object]
 impl DurableObject for Ultimatum {
     fn new(state: State, env: Env) -> Self {

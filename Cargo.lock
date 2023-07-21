@@ -169,6 +169,7 @@ dependencies = [
  "eagle-game",
  "serde",
  "thiserror",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -176,14 +177,17 @@ name = "eagle-xeejp"
 version = "0.1.0"
 dependencies = [
  "eagle-game",
- "eagle-server",
  "eagle-types",
  "eagle-ultimatum",
  "futures",
- "getrandom",
+ "gloo-net",
+ "js-sys",
  "serde",
- "uuid",
- "worker",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -301,6 +305,40 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "gloo-net"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3000ef231a67d5bfee6b35f2c0f6f5c8d45b3381ef5bbbea603690ec4e539762"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
+ "gloo-utils",
+ "http",
+ "js-sys",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-utils"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037fcb07216cb3a30f7292bd0176b050b7b9a052ba830ef7d5d65f6dc64ba58e"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1017,4 +1055,19 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "xeejp-server"
+version = "0.1.0"
+dependencies = [
+ "eagle-game",
+ "eagle-server",
+ "eagle-types",
+ "eagle-ultimatum",
+ "futures",
+ "getrandom",
+ "serde",
+ "uuid",
+ "worker",
 ]

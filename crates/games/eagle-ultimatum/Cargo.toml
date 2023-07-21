@@ -7,5 +7,7 @@ edition = "2021"
 
 [dependencies]
 eagle-game = { workspace = true }
+
 serde = { workspace = true }
 thiserror = { workspace = true }
+wasm-bindgen = { workspace = true }

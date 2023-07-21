@@ -1,6 +1,10 @@
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::types::{Proposal, Response};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[wasm_bindgen]
 pub struct UltimatumConductor {
     proposal: Option<Proposal>,
     proposed: bool,

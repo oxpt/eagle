@@ -10,7 +10,7 @@ pub enum ClientToServerMessage<T> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ClientCommandIndex(usize);
+pub struct ClientCommandIndex(pub usize);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ServerToClientMessage<T> {

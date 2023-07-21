@@ -8,7 +8,7 @@ pub enum User {
     Player(PlayerId),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ClientState {
     pub last_successful_communication: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -23,13 +23,5 @@ impl ClientState {
         datetime: chrono::DateTime<chrono::Utc>,
     ) {
         self.last_successful_communication = Some(datetime);
-    }
-}
-
-impl Default for ClientState {
-    fn default() -> Self {
-        Self {
-            last_successful_communication: None,
-        }
     }
 }

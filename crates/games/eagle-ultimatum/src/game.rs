@@ -4,17 +4,11 @@ use eagle_game::prelude::*;
 
 use crate::{
     conductor_model::UltimatumConductor,
-    conductor_view::ConductorView,
     config::UltimatumConfig,
-    error::UltimatumError,
-    events::{
-        UltimatumConductorCommand, UltimatumConductorNotify, UltimatumPlayerCommand,
-        UltimatumPlayerNotify,
-    },
+    events::{UltimatumConductorCommand, UltimatumPlayerCommand},
     phase::Phase,
-    player_model::PlayerModel,
-    player_view::PlayerView,
-    types::{ControlVisibility, Players, Proposal, ProposalOpenTiming},
+    player_model::UltimatumPlayer,
+    types::{Players, Proposal, ProposalOpenTiming},
 };
 
 #[derive(Debug)]
@@ -22,7 +16,7 @@ pub struct UltimatumGame {
     config: UltimatumConfig,
     phase: Phase,
     conductor: UltimatumConductor,
-    players: Map<PlayerId, PlayerModel>,
+    players: Map<PlayerId, UltimatumPlayer>,
 }
 
 pub(crate) fn standby(context: &mut impl GameContext<UltimatumGame>, players: Players) -> Phase {
@@ -51,8 +45,8 @@ impl Game for UltimatumGame {
     type Config = UltimatumConfig;
     type ConductorCommand = UltimatumConductorCommand;
     type PlayerCommand = UltimatumPlayerCommand;
-    type ConductorView = ConductorView;
-    type PlayerView = PlayerView;
+    type ConductorView = UltimatumConductor;
+    type PlayerView = UltimatumPlayer;
 
     fn new(config: Self::Config) -> Self {
         Self {

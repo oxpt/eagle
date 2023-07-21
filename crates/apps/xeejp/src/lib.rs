@@ -1,85 +1,81 @@
-pub mod game;
-pub mod repository;
-pub mod ultimatum;
+use eagle_types::messages::ServerToClientMessage;
+use eagle_ultimatum::{conductor_model::UltimatumConductor, player_model::UltimatumPlayer};
 
-use uuid::Uuid;
-use worker::*;
+use futures::{stream::SplitSink, SinkExt, StreamExt};
+use gloo_net::websocket::{futures::WebSocket, Message};
+use js_sys::JSON;
+use serde::{de::DeserializeOwned, Serialize};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 
-const KV_NS_CONDUCTOR_CLIENT_IDS: &str = "CONDUCTOR_CLIENT_IDS";
+#[wasm_bindgen]
+pub struct CommandSender {
+    sink: SplitSink<WebSocket, Message>,
+}
 
-#[cfg(feature = "worker")]
-#[event(fetch)]
-pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
-    let router = Router::new();
-
-    fn get_param<T>(ctx: &RouteContext<T>, name: &str) -> worker::Result<Uuid> {
-        let value = ctx.param(name).unwrap();
-        value
-            .parse()
-            .map_err(|_| Error::Json(("Invalid UUID".into(), 400)))
+impl CommandSender {
+    pub fn new(sink: SplitSink<WebSocket, Message>) -> Self {
+        Self { sink }
     }
 
-    router
-        .post_async(
-            "/games/:game_instance_id/clients/:client_id/start",
-            |_req, ctx| async move {
-                let _game_instance_id = get_param(&ctx, "game_instance_id")?;
-                let _client_id = get_param(&ctx, "client_id")?;
-                Response::ok("")
-            },
-        )
-        .on_async(
-            "/games/:game_instance_id/clients/:client_id/conduct",
-            |req, ctx| async move {
-                let client_id = get_param(&ctx, "client_id")?;
-                let game_instance_id = get_param(&ctx, "game_instance_id")?;
-                // TODO: authenticate the conductor
-                let attached_game_instance = ctx
-                    .kv(KV_NS_CONDUCTOR_CLIENT_IDS)?
-                    .get(&client_id.to_string())
-                    .text()
-                    .await?
-                    .ok_or_else(|| {
-                        Error::Json(("Game instance is not attached to the client".into(), 400))
-                    })?;
-                if game_instance_id.to_string() != attached_game_instance {
-                    return Err(Error::Json((
-                        "Game instance is not attached to the client".into(),
-                        400,
-                    )));
+    pub async fn send(&mut self, message: JsValue) -> Result<(), String> {
+        let json = JSON::stringify(&message).unwrap();
+        self.sink
+            .send(Message::Text(json.into()))
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+pub async fn connect_to_server<T: Serialize + DeserializeOwned>(
+    addr: &str,
+    on_update: js_sys::Function,
+) -> Result<CommandSender, String> {
+    let ws = WebSocket::open(addr).map_err(|e| e.to_string())?;
+    let (w, mut r) = ws.split();
+    spawn_local(async move {
+        while let Some(result) = r.next().await {
+            match result {
+                Ok(Message::Text(json)) => {
+                    let message = serde_json::from_str::<ServerToClientMessage<T>>(&json)
+                        .map_err(|e| e.to_string())
+                        .unwrap();
+                    match message {
+                        ServerToClientMessage::Notify { view } => {
+                            let value = serde_wasm_bindgen::to_value(&view).unwrap();
+                            on_update.call1(&JsValue::NULL, &value).unwrap();
+                        }
+                        ServerToClientMessage::Pong => {}
+                        ServerToClientMessage::Ack { index } => {
+                            todo!("ack {}", index.0)
+                        }
+                    }
                 }
-                let namespace = ctx.durable_object("Ultimatum")?;
-                let stub = namespace
-                    .id_from_name(&attached_game_instance)?
-                    .get_stub()?;
-                stub.fetch_with_request(req).await
-            },
-        )
-        .on_async(
-            "/games/:game_instance_id/clients/:client_id/play/:player_id",
-            |req, ctx| async move {
-                let game_instance_id = get_param(&ctx, "game_instance_id")?;
-                // TODO: authenticate the player
-                let namespace = ctx.durable_object("Ultimatum")?;
-                let stub = namespace
-                    .id_from_name(&game_instance_id.to_string())?
-                    .get_stub()?;
-                stub.fetch_with_request(req).await
-            },
-        )
-        .get("/secret", |_req, ctx| {
-            Response::ok(ctx.secret("CF_API_TOKEN")?.to_string())
-        })
-        .get("/var", |_req, ctx| {
-            Response::ok(ctx.var("BUILD_NUMBER")?.to_string())
-        })
-        .post_async("/kv", |_req, ctx| async move {
-            let kv = ctx.kv("SOME_NAMESPACE")?;
+                Ok(Message::Bytes(_)) => {
+                    web_sys::console::error_1(&"unexpected binary message from server".into());
+                }
+                Err(e) => {
+                    web_sys::console::error_1(&e.to_string().into());
+                }
+            }
+        }
+        web_sys::console::log_1(&"websocket closed".into());
+    });
+    Ok(CommandSender::new(w))
+}
 
-            kv.put("key", "value")?.execute().await?;
+#[wasm_bindgen]
+pub async fn connect_to_server_as_conductor(
+    addr: &str,
+    on_update: js_sys::Function,
+) -> Result<CommandSender, String> {
+    connect_to_server::<UltimatumConductor>(addr, on_update).await
+}
 
-            Response::empty()
-        })
-        .run(req, env)
-        .await
+#[wasm_bindgen]
+pub async fn connect_to_server_as_player(
+    addr: &str,
+    on_update: js_sys::Function,
+) -> Result<CommandSender, String> {
+    connect_to_server::<UltimatumPlayer>(addr, on_update).await
 }

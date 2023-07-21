@@ -19,6 +19,7 @@
 
 ```sh
 tools/wasm-pack.sh build
+tools/wrangler.sh dev
 tools/next.sh dev
 ```
 
