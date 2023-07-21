@@ -11,6 +11,7 @@ eagle-types = { workspace = true }
 eagle-game = { workspace = true }
 eagle-server = { workspace = true }
 eagle-ultimatum = { workspace = true }
+xeejp = { path = "../xeejp" }
 
 worker = "0.0.17"
 futures = { workspace = true }

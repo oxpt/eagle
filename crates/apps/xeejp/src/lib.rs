@@ -1,3 +1,5 @@
+pub mod types;
+
 use eagle_types::messages::ServerToClientMessage;
 use eagle_ultimatum::{conductor_model::UltimatumConductor, player_model::UltimatumPlayer};
 

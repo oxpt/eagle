@@ -2,10 +2,12 @@ pub mod game;
 pub mod repository;
 pub mod ultimatum;
 
+use futures::join;
 use uuid::Uuid;
 use worker::*;
+use xeejp::types::CreateGameInstanceRequest;
 
-const KV_NS_CONDUCTOR_CLIENT_IDS: &str = "CONDUCTOR_CLIENT_IDS";
+const KV_NS_GAMES: &str = "GAMES";
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
@@ -21,9 +23,21 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     router
         .post_async(
             "/games/:game_instance_id/clients/:client_id/start",
-            |_req, ctx| async move {
-                let _game_instance_id = get_param(&ctx, "game_instance_id")?;
-                let _client_id = get_param(&ctx, "client_id")?;
+            |mut req, ctx| async move {
+                let game_instance_id = get_param(&ctx, "game_instance_id")?;
+                let client_id = get_param(&ctx, "client_id")?;
+                let body: CreateGameInstanceRequest = req.json().await?;
+                let (room_key_result,  = join!(
+                    ctx.kv(KV_NS_ROOM_KEY)
+                        .expect("room key namespace")
+                        .put(&body.room_key, game_instance_id)?
+                        .execute(),
+                    ctx.kv(KV_NS_CONDUCTOR_CLIENT_IDS)
+                        .expect("conductor client ids namespace")
+                        .put(&client_id.to_string(), game_instance_id)?
+                        .execute()
+                );
+                room_key_result.expect("put room key");
                 Response::ok("")
             },
         )
@@ -66,19 +80,6 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 stub.fetch_with_request(req).await
             },
         )
-        .get("/secret", |_req, ctx| {
-            Response::ok(ctx.secret("CF_API_TOKEN")?.to_string())
-        })
-        .get("/var", |_req, ctx| {
-            Response::ok(ctx.var("BUILD_NUMBER")?.to_string())
-        })
-        .post_async("/kv", |_req, ctx| async move {
-            let kv = ctx.kv("SOME_NAMESPACE")?;
-
-            kv.put("key", "value")?.execute().await?;
-
-            Response::empty()
-        })
         .run(req, env)
         .await
 }
