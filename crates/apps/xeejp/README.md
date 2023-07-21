@@ -36,5 +36,3 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-This project uses the [BIZ UDPGothic](https://fonts.google.com/specimen/BIZ+UDPGothic) font and the [BIZ UDPMincho](https://fonts.google.com/specimen/BIZ+UDPMincho) font.

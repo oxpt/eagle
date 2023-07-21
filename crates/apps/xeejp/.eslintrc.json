@@ -1,45 +1,9 @@
 {
-  "root": true,
   "extends": [
     "next/core-web-vitals",
+    "plugin:@next/next/recommended",
     "eslint:recommended",
-    "plugin:import/recommended",
-    "plugin:import/warnings",
-    "plugin:@typescript-eslint/recommended",
-    "prettier",
-    "airbnb"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
-  "settings": {
-    "tailwindcss": {
-      "whitelist": ["fi", "fi\\-[a-z]+"]
-    }
-  },
-  "rules": {
-    "import/order": [
-      "error",
-      {
-        "alphabetize": {
-          "order": "asc"
-        }
-      }
-    ],
-    "@typescript-eslint/no-var-requires": "off",
-    "react/jsx-filename-extension": ["error", { "extensions": [".js", ".jsx", ".ts", ".tsx"] }],
-    "react/jsx-uses-react": "off",
-    "react/react-in-jsx-scope": "off",
-    "react/prop-types": "off",
-    "react/jsx-props-no-spreading": "off",
-    "import/extensions": [
-      "error",
-      "ignorePackages",
-      {
-        "js": "never",
-        "jsx": "never",
-        "ts": "never",
-        "tsx": "never"
-      }
-    ]
-  }
+    "next",
+    "prettier"
+  ]
 }
