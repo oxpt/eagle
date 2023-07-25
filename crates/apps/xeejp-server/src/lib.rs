@@ -1,13 +1,14 @@
 pub mod game;
 pub mod repository;
+mod types;
 pub mod ultimatum;
 
-use futures::join;
 use uuid::Uuid;
 use worker::*;
-use xeejp::types::CreateGameInstanceRequest;
+use xeejp::types::{RoomResponse, StartGameInstanceRequest};
 
-const KV_NS_GAMES: &str = "GAMES";
+const GAME_OBJECT_NS: &str = "GAME";
+const ROOM_KEY_NS: &str = "ROOM_KEY";
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
@@ -20,66 +21,56 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             .map_err(|_| Error::Json(("Invalid UUID".into(), 400)))
     }
 
+    fn stub(ctx: &RouteContext<()>) -> worker::Result<worker::Stub> {
+        let game_instance_id = get_param(ctx, "game_instance_id")?;
+        ctx.durable_object(GAME_OBJECT_NS)?
+            .id_from_name(&game_instance_id.to_string())?
+            .get_stub()
+    }
+
     router
+        .get_async("/rooms/:room_key", |_req, ctx| async move {
+            let room_key = ctx.param("room_key").unwrap();
+            let kv = ctx.kv(ROOM_KEY_NS)?;
+            if let Some(game_instance_id) = kv.get(room_key).text().await? {
+                Ok(Response::from_json(&RoomResponse { game_instance_id })?)
+            } else {
+                Err(Error::Json(("Room not found".into(), 404)))
+            }
+        })
         .post_async(
-            "/games/:game_instance_id/clients/:client_id/start",
+            "/games/:game_instance_id/start",
             |mut req, ctx| async move {
                 let game_instance_id = get_param(&ctx, "game_instance_id")?;
-                let client_id = get_param(&ctx, "client_id")?;
-                let body: CreateGameInstanceRequest = req.json().await?;
-                let (room_key_result,  = join!(
-                    ctx.kv(KV_NS_ROOM_KEY)
-                        .expect("room key namespace")
-                        .put(&body.room_key, game_instance_id)?
-                        .execute(),
-                    ctx.kv(KV_NS_CONDUCTOR_CLIENT_IDS)
-                        .expect("conductor client ids namespace")
-                        .put(&client_id.to_string(), game_instance_id)?
-                        .execute()
-                );
-                room_key_result.expect("put room key");
-                Response::ok("")
-            },
-        )
-        .on_async(
-            "/games/:game_instance_id/clients/:client_id/conduct",
-            |req, ctx| async move {
-                let client_id = get_param(&ctx, "client_id")?;
-                let game_instance_id = get_param(&ctx, "game_instance_id")?;
-                // TODO: authenticate the conductor
-                let attached_game_instance = ctx
-                    .kv(KV_NS_CONDUCTOR_CLIENT_IDS)?
-                    .get(&client_id.to_string())
-                    .text()
-                    .await?
-                    .ok_or_else(|| {
-                        Error::Json(("Game instance is not attached to the client".into(), 400))
-                    })?;
-                if game_instance_id.to_string() != attached_game_instance {
-                    return Err(Error::Json((
-                        "Game instance is not attached to the client".into(),
-                        400,
-                    )));
+                let body: StartGameInstanceRequest = req.json().await?;
+
+                // Check and store room key
+                // FIXME: This is not atomic
+                let kv = ctx.kv(ROOM_KEY_NS)?;
+                if kv.get(&body.room_key).text().await?.is_some() {
+                    return Err(Error::Json(("Room key already exists".into(), 409)));
                 }
-                let namespace = ctx.durable_object("Ultimatum")?;
-                let stub = namespace
-                    .id_from_name(&attached_game_instance)?
-                    .get_stub()?;
-                stub.fetch_with_request(req).await
+                kv.put(&body.room_key, game_instance_id.to_string())?
+                    .execute()
+                    .await
+                    .expect("kv.put room key");
+
+                // Start game instance
+                stub(&ctx)?.fetch_with_request(req).await
             },
         )
-        .on_async(
-            "/games/:game_instance_id/clients/:client_id/play/:player_id",
-            |req, ctx| async move {
-                let game_instance_id = get_param(&ctx, "game_instance_id")?;
-                // TODO: authenticate the player
-                let namespace = ctx.durable_object("Ultimatum")?;
-                let stub = namespace
-                    .id_from_name(&game_instance_id.to_string())?
-                    .get_stub()?;
-                stub.fetch_with_request(req).await
-            },
-        )
+        .post_async("/games/:game_instance_id/players", |req, ctx| async move {
+            stub(&ctx)?.fetch_with_request(req).await
+        })
+        .get_async("/games/:game_instance_id/players", |req, ctx| async move {
+            stub(&ctx)?.fetch_with_request(req).await
+        })
+        .on_async("/games/:game_instance_id/conduct", |req, ctx| async move {
+            stub(&ctx)?.fetch_with_request(req).await
+        })
+        .on_async("/games/:game_instance_id/play", |req, ctx| async move {
+            stub(&ctx)?.fetch_with_request(req).await
+        })
         .run(req, env)
         .await
 }
