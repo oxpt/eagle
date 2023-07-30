@@ -4,10 +4,10 @@ use worker::*;
 use crate::game::WorkerGame;
 
 #[durable_object]
-pub struct Ultimatum(WorkerGame<UltimatumGame>);
+pub struct Ultimatum2023(WorkerGame<UltimatumGame>);
 
 #[durable_object]
-impl DurableObject for Ultimatum {
+impl DurableObject for Ultimatum2023 {
     fn new(state: State, env: Env) -> Self {
         Self(WorkerGame::new(state, env))
     }

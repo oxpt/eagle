@@ -5,6 +5,8 @@
 ![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg?style=flat)
 [![GitHub Repo stars](https://img.shields.io/github/stars/oxpt/eagle?style=social&color=yellow)](https://github.com/oxpt/eagle)
 
+⚠️ **Currently under development. Not for use**
+
 ## Concepts
 
 - Easy to implement, programme, composite, and host games.

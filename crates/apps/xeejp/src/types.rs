@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct StartGameInstanceRequest {
+pub struct CreateRoomRequest {
     pub room_key: String,
     pub conductor_password: String,
 }
@@ -15,11 +15,6 @@ pub struct ConductRequest {
 pub struct PlayRequest {
     pub player_id: String,
     pub player_password: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RoomResponse {
-    pub game_instance_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

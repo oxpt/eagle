@@ -15,10 +15,9 @@ use uuid::Uuid;
 use worker::{WebSocket, *};
 use xeejp::types::{
     AddPlayerRequest, ConductRequest, PlayRequest, PlayerResponse, PlayersResponse,
-    StartGameInstanceRequest,
 };
 
-use crate::repository::GameLog;
+use crate::{repository::GameLog, types::Start};
 
 struct WebSocketConnection {
     websocket: WebSocket,
@@ -96,43 +95,37 @@ impl<T: Game> WorkerGame<T> {
 
     pub async fn fetch(&mut self, req: Request) -> worker::Result<Response> {
         Router::with_data(self.game_state.clone())
-            .post_async(
-                "/games/:game_instance_id/start",
-                |mut req, ctx| async move {
-                    let body: StartGameInstanceRequest = req.json().await?;
-                    let data = ctx.data.lock().await;
-                    data.state
-                        .storage()
-                        .put(
-                            CONDUCTOR_HASH_KV_KEY,
-                            hash_password(&body.conductor_password),
-                        )
-                        .await?;
-                    Response::ok("Game started")
-                },
-            )
-            .post_async(
-                "/games/:game_instance_id/players",
-                |mut req, ctx| async move {
-                    let body: AddPlayerRequest = req.json().await?;
-                    let mut data = ctx.data.lock().await;
-                    let algon2 = Argon2::default();
-                    let salt = SaltString::generate(&mut OsRng);
-                    let hash = algon2
-                        .hash_password(body.player_password.as_bytes(), &salt)
-                        .expect("Hashing failed");
-                    data.players.insert(
-                        body.player_id,
-                        Player {
-                            player_uuid: PlayerId(Uuid::parse_str(&body.player_uuid).unwrap()),
-                            password_hash: hash.serialize().as_str().to_string(),
-                        },
-                    );
-                    // TODO: Save player to storage
-                    Response::ok("Player added")
-                },
-            )
-            .get_async("/games/:game_instance_id/players", |_req, ctx| async move {
+            .post_async("/start", |mut req, ctx| async move {
+                let body: Start = req.json().await?;
+                let data = ctx.data.lock().await;
+                data.state
+                    .storage()
+                    .put(
+                        CONDUCTOR_HASH_KV_KEY,
+                        hash_password(&body.conductor_password),
+                    )
+                    .await?;
+                Response::ok("Game started")
+            })
+            .post_async("/players", |mut req, ctx| async move {
+                let body: AddPlayerRequest = req.json().await?;
+                let mut data = ctx.data.lock().await;
+                let algon2 = Argon2::default();
+                let salt = SaltString::generate(&mut OsRng);
+                let hash = algon2
+                    .hash_password(body.player_password.as_bytes(), &salt)
+                    .expect("Hashing failed");
+                data.players.insert(
+                    body.player_id,
+                    Player {
+                        player_uuid: PlayerId(Uuid::parse_str(&body.player_uuid).unwrap()),
+                        password_hash: hash.serialize().as_str().to_string(),
+                    },
+                );
+                // TODO: Save player to storage
+                Response::ok("Player added")
+            })
+            .get_async("/players", |_req, ctx| async move {
                 let data = ctx.data.lock().await;
                 let players = data
                     .players
@@ -144,7 +137,7 @@ impl<T: Game> WorkerGame<T> {
                     .collect();
                 Response::from_json(&PlayersResponse { players })
             })
-            .on_async("/games/:game_instance_id/play", |mut req, ctx| async move {
+            .on_async("/play", |mut req, ctx| async move {
                 let body: PlayRequest = req.json().await?;
                 let client_id = ClientId::gen();
                 let data = ctx.data.lock().await;
@@ -153,21 +146,18 @@ impl<T: Game> WorkerGame<T> {
                 verify_password(&body.player_password, &player.password_hash);
                 websocket(ctx.data.clone(), User::Player(player_id), client_id).await
             })
-            .on_async(
-                "/games/:game_instance_id/conduct",
-                |mut req, ctx| async move {
-                    let body: ConductRequest = req.json().await?;
-                    let client_id = ClientId::gen();
-                    let data = ctx.data.lock().await;
-                    let conductor_hash = data
-                        .state
-                        .storage()
-                        .get::<String>(CONDUCTOR_HASH_KV_KEY)
-                        .await?;
-                    verify_password(&body.conductor_password, &conductor_hash);
-                    websocket(ctx.data.clone(), User::Conductor, client_id).await
-                },
-            )
+            .on_async("/conduct", |mut req, ctx| async move {
+                let body: ConductRequest = req.json().await?;
+                let client_id = ClientId::gen();
+                let data = ctx.data.lock().await;
+                let conductor_hash = data
+                    .state
+                    .storage()
+                    .get::<String>(CONDUCTOR_HASH_KV_KEY)
+                    .await?;
+                verify_password(&body.conductor_password, &conductor_hash);
+                websocket(ctx.data.clone(), User::Conductor, client_id).await
+            })
             .run(req, self.env.clone().into())
             .await
     }

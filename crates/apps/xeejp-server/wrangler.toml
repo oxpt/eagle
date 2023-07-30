@@ -5,4 +5,7 @@ main = "build/worker/shim.mjs"
 command = "cargo install -q worker-build && worker-build --release"
 
 [durable_objects]
-bindings = [{ name = "Ultimatum", class_name = "Ultimatum" }]
+bindings = [
+  { name = "ULTIMATUM2023", class_name = "Ultimatum2023" },
+  { name = "USER", class_name = "User" },
+]

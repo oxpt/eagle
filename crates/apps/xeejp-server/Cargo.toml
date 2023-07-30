@@ -20,3 +20,4 @@ uuid = { workspace = true, features = ["js"] }
 serde = { workspace = true }
 getrandom = { version = "0.2", features = ["js"] }
 argon2 = "0.5"
+serde-wasm-bindgen = "0.5"
