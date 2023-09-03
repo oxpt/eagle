@@ -4,7 +4,6 @@ mod types;
 pub mod ultimatum;
 pub mod user;
 
-use types::CreateRoom;
 use worker::{wasm_bindgen::JsValue, *};
 use xeejp::types::CreateRoomRequest;
 
@@ -75,12 +74,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 .fetch_with_request(Request::new_with_init(
                     "/rooms",
                     &RequestInit {
-                        body: Some(
-                            serde_wasm_bindgen::to_value(&CreateRoom {
-                                room_key: body.room_key.clone(),
-                            })
-                            .unwrap(),
-                        ),
+                        body: Some(serde_wasm_bindgen::to_value(&body).unwrap()),
                         method: Method::Post,
                         ..Default::default()
                     },
@@ -106,6 +100,21 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             } else {
                 Ok(res)
             }
+        })
+        .get_async("/users/:user_id/rooms", |_req, ctx| async move {
+            // FIXME: Authenticate user
+
+            let user_id = ctx.param("user_id").unwrap();
+            let res = user_object(&ctx, user_id)?
+                .fetch_with_request(Request::new_with_init(
+                    "/rooms",
+                    &RequestInit {
+                        method: Method::Get,
+                        ..Default::default()
+                    },
+                )?)
+                .await?;
+            Ok(res)
         })
         .post_async(
             "/users/:user_id/rooms/:room_key/players",

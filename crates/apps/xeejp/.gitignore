@@ -15,6 +15,7 @@ node_modules
 !/tsconfig.json
 !/tailwind.config.js
 !/postcss.config.js
+!/.env.local
 
 # source codes
 !**/*.tsx

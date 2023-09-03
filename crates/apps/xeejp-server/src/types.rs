@@ -12,8 +12,3 @@ pub(crate) struct Player {
 pub(crate) struct Start {
     pub conductor_password: String,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct CreateRoom {
-    pub room_key: String,
-}
