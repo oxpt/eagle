@@ -21,10 +21,9 @@ eagle-ultimatum = { workspace = true }
 wasm-bindgen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-gloo-net = "0.3"
 futures = { workspace = true }
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"] }
 js-sys = "0.3"
-serde-wasm-bindgen = "0.5"
-tsify = "0.4"
+serde-wasm-bindgen = "0.6"
+tsify = { workspace = true }

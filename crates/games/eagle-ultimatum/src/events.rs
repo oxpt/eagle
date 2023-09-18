@@ -1,12 +1,10 @@
 use eagle_game::prelude::PlayerId;
 use serde::{Deserialize, Serialize};
+use tsify::Tsify;
 
-use crate::{
-    error::UltimatumError,
-    types::{Proposal, Response},
-};
+use crate::types::{Proposal, Response};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Tsify, Debug, Clone, Serialize, Deserialize)]
 pub enum UltimatumConductorCommand {
     StartGame,
     AttachProposer(PlayerId),
@@ -14,28 +12,9 @@ pub enum UltimatumConductorCommand {
     OpenProposal,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum UltimatumConductorNotify {
-    UpdateProposal(Proposal),
-    Proposed,
-    Response(Response),
-    Error(UltimatumError),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Tsify, Debug, Clone, Serialize, Deserialize)]
 pub enum UltimatumPlayerCommand {
     UpdateProposal(Proposal),
     SubmitProposal(Proposal),
     Respond(Response),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum UltimatumPlayerNotify {
-    YouAreProposer,
-    YouAreResponder,
-    Proposal(Proposal),
-    StartGame,
-    OpenProposal(Proposal),
-    UpdateProposal(Option<crate::types::Proposal>),
-    Responded(Response),
 }

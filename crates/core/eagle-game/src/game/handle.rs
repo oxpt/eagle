@@ -21,10 +21,7 @@ impl<T: Game> GameHandle<T> {
 
 impl<T: Game> Clone for GameHandle<T> {
     fn clone(&self) -> Self {
-        Self {
-            game_instance_id: self.game_instance_id,
-            phantom: PhantomData,
-        }
+        *self
     }
 }
 

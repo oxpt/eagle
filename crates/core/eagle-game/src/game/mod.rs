@@ -15,8 +15,8 @@ pub trait Game: Debug + Sized + 'static {
     type Config: Default + Debug + Clone + Serialize + DeserializeOwned + 'static;
     type ConductorCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
     type PlayerCommand: Debug + Clone + Serialize + DeserializeOwned + 'static;
-    type ConductorView: Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
-    type PlayerView: Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
+    type ConductorView: Default + Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
+    type PlayerView: Default + Debug + Clone + PartialEq + Serialize + DeserializeOwned + 'static;
 
     fn new(config: Self::Config) -> Self;
 

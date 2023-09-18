@@ -2,6 +2,7 @@ use std::ops::RangeInclusive;
 
 use eagle_game::prelude::PlayerId;
 use serde::{Deserialize, Serialize};
+use tsify::Tsify;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ProposalRange {
@@ -48,12 +49,14 @@ pub struct Players {
     pub responder: PlayerId,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Tsify, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct Proposal {
     pub proposal: u16,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Tsify, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub enum Response {
     Yes,
     No,

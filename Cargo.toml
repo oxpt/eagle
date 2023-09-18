@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 
 members = ["crates/apps/*", "crates/core/*", "crates/games/*"]
 # It's difficult to design for now
@@ -20,3 +21,4 @@ anyhow = { version = "1.0" }
 thiserror = { version = "1.0" }
 wasm-bindgen = { version = "0.2" }
 futures = "0.3"
+tsify = "0.4"

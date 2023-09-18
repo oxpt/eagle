@@ -11,3 +11,4 @@ eagle-game = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 wasm-bindgen = { workspace = true }
+tsify = { workspace = true }

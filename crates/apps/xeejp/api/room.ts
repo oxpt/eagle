@@ -12,6 +12,7 @@ export async function requestCreateRoom(
     method: "POST",
     body: JSON.stringify(body),
   });
+
   queryClient.invalidateQueries(roomsQueryKey(userId));
   return res.text();
 }

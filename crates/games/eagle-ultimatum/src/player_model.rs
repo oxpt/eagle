@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::wasm_bindgen;
+use tsify::Tsify;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[wasm_bindgen]
+#[derive(Tsify, Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UltimatumPlayer {}
