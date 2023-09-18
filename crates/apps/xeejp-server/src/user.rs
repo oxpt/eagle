@@ -21,8 +21,15 @@ impl DurableObject for User {
     async fn fetch(&mut self, req: Request) -> worker::Result<Response> {
         Router::with_data(&self)
             .post_async("/rooms", |mut req, ctx| async move {
+                console_log!("POST /rooms");
                 let body = req.json::<CreateRoomRequest>().await?;
-                let mut rooms: Rooms = ctx.data.state.storage().get(ROOMS_KV_KEY).await?;
+                let mut rooms: Rooms = ctx
+                    .data
+                    .state
+                    .storage()
+                    .get(ROOMS_KV_KEY)
+                    .await
+                    .unwrap_or_else(|_| Rooms(HashMap::new()));
                 if let Entry::Vacant(e) = rooms.0.entry(body.room_key) {
                     e.insert(Room {
                         name: body.room_name,
@@ -34,7 +41,14 @@ impl DurableObject for User {
                 }
             })
             .get_async("/rooms", |_req, ctx| async move {
-                let rooms: Rooms = ctx.data.state.storage().get(ROOMS_KV_KEY).await?;
+                console_log!("GET /rooms");
+                let rooms: Rooms = ctx
+                    .data
+                    .state
+                    .storage()
+                    .get(ROOMS_KV_KEY)
+                    .await
+                    .unwrap_or_else(|_| Rooms(HashMap::new()));
                 let response = RoomsResponse { rooms };
                 Response::ok(serde_json::to_string(&response).unwrap())
             })

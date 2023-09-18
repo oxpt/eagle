@@ -21,7 +21,7 @@
 
 ```sh
 tools/wasm-pack.sh build
-tools/wrangler.sh dev
+tools/wrangler.sh dev --var "ALLOWED_ORIGINS:*"
 tools/next.sh dev
 ```
 

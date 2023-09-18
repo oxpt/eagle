@@ -3,17 +3,37 @@ pub mod repository;
 mod types;
 pub mod ultimatum;
 pub mod user;
+mod utils;
 
 use worker::{wasm_bindgen::JsValue, *};
-use xeejp::types::CreateRoomRequest;
+use xeejp::types::{AddPlayerRequest, CreateRoomRequest};
 
-use crate::types::Start;
+use crate::{types::Start, utils::forward, utils::get, utils::post};
 
 const GAME_OBJECT_NS: &str = "ULTIMATUM2023";
 const USER_OBJECT_NS: &str = "USER";
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+    let cors = Cors::new()
+        .with_allowed_headers(["Content-Type"])
+        .with_methods([
+            Method::Get,
+            Method::Post,
+            Method::Put,
+            Method::Delete,
+            Method::Options,
+        ])
+        .with_origins([env
+            .var("ALLOWED_ORIGINS")
+            .expect("ALLOWED_ORIGINS environment variable")
+            .to_string()])
+        .with_credentials(true);
+
+    if req.method() == Method::Options {
+        return Response::ok("")?.with_cors(&cors);
+    }
+
     let router = Router::new();
 
     fn room_object(
@@ -37,63 +57,31 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         room_key: &str,
     ) -> worker::Result<bool> {
         Ok(user_object(ctx, user_id)?
-            .fetch_with_request(Request::new_with_init(
-                format!("/rooms/{}", room_key).as_str(),
-                &RequestInit {
-                    method: Method::Get,
-                    ..Default::default()
-                },
-            )?)
+            .fetch_with_request(get(&format!("/rooms/{}", room_key))?)
             .await?
             .status_code()
             == 200)
     }
-    fn inner_body(req: Request) -> Option<JsValue> {
-        req.inner().body().map(|b| b.into())
-    }
-    fn websocket_request(req: Request, path: &str) -> worker::Result<Request> {
-        Request::new_with_init(
-            path,
-            &RequestInit {
-                method: req.method(),
-                headers: req.headers().clone(),
-                body: inner_body(req),
-                ..Default::default()
-            },
-        )
-    }
 
-    router
+    let res = router
         .post_async("/users/:user_id/rooms", |mut req, ctx| async move {
+            console_log!("POST /users/:user_id/rooms");
             // FIXME: Authenticate user
 
             let user_id = ctx.param("user_id").unwrap();
             let body: CreateRoomRequest = req.json().await?;
 
             let res = user_object(&ctx, user_id)?
-                .fetch_with_request(Request::new_with_init(
-                    "/rooms",
-                    &RequestInit {
-                        body: Some(serde_wasm_bindgen::to_value(&body).unwrap()),
-                        method: Method::Post,
-                        ..Default::default()
-                    },
-                )?)
+                .fetch_with_request(post("/rooms", req.headers().clone(), &body)?)
                 .await?;
 
             if res.status_code() == 201 {
                 room_object(&ctx, user_id, &body.room_key)?
-                    .fetch_with_request(Request::new_with_init(
+                    .fetch_with_request(post(
                         "/start",
-                        &RequestInit {
-                            body: Some(
-                                serde_wasm_bindgen::to_value(&Start {
-                                    conductor_password: body.conductor_password,
-                                })
-                                .unwrap(),
-                            ),
-                            method: Method::Post,
-                            ..Default::default()
+                        req.headers().clone(),
+                        &Start {
+                            conductor_password: body.conductor_password,
                         },
                     )?)
                     .await
@@ -101,18 +89,12 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 Ok(res)
             }
         })
-        .get_async("/users/:user_id/rooms", |_req, ctx| async move {
+        .get_async("/users/:user_id/rooms", |req, ctx| async move {
+            console_log!("GET /users/:user_id/rooms");
             // FIXME: Authenticate user
-
             let user_id = ctx.param("user_id").unwrap();
             let res = user_object(&ctx, user_id)?
-                .fetch_with_request(Request::new_with_init(
-                    "/rooms",
-                    &RequestInit {
-                        method: Method::Get,
-                        ..Default::default()
-                    },
-                )?)
+                .fetch_with_request(get("/rooms")?)
                 .await?;
             Ok(res)
         })
@@ -124,32 +106,19 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
                 let room_key = ctx.param("room_key").unwrap();
                 room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(Request::new_with_init(
-                        "/players",
-                        &RequestInit {
-                            method: Method::Post,
-                            body: inner_body(req),
-                            ..Default::default()
-                        },
-                    )?)
+                    .fetch_with_request(forward(req, "/players")?)
                     .await
             },
         )
         .get_async(
             "/users/:user_id/rooms/:room_key/players",
-            |_req, ctx| async move {
+            |req, ctx| async move {
                 let user_id = ctx.param("user_id").unwrap();
                 // FIXME: Authenticate user
 
                 let room_key = ctx.param("room_key").unwrap();
                 room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(Request::new_with_init(
-                        "/players",
-                        &RequestInit {
-                            method: Method::Get,
-                            ..Default::default()
-                        },
-                    )?)
+                    .fetch_with_request(get("/players")?)
                     .await
             },
         )
@@ -162,7 +131,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                     return Response::error("Room not found", 404);
                 }
                 room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(websocket_request(req, "/conduct")?)
+                    .fetch_with_request(forward(req, "/conduct")?)
                     .await
             },
         )
@@ -176,10 +145,11 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 }
 
                 room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(websocket_request(req, "/play")?)
+                    .fetch_with_request(forward(req, "/play")?)
                     .await
             },
         )
         .run(req, env)
-        .await
+        .await;
+    res?.with_cors(&cors)
 }
