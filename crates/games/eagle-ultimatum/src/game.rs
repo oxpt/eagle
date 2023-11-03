@@ -198,6 +198,6 @@ impl Game for UltimatumGame {
         context: &impl eagle_game::game::render_context::RenderContext,
         player_id: PlayerId,
     ) -> Self::PlayerView {
-        todo!()
+        UltimatumPlayer {}
     }
 }

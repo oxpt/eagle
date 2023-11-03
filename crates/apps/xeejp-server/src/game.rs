@@ -17,7 +17,7 @@ use xeejp::types::{
     AddPlayerRequest, ConductRequest, PlayRequest, PlayerResponse, PlayersResponse,
 };
 
-use crate::{repository::GameLog, types::Start};
+use crate::{repository::GameLog, tracing::init_tracing_once, types::Start, utils::handle_error};
 
 struct WebSocketConnection {
     websocket: WebSocket,
@@ -26,10 +26,11 @@ struct WebSocketConnection {
 pub struct Data<T: Game> {
     state: State,
     server: GameServer<T, WebSocketConnection>,
-    log: GameLog<T>,
-    players: HashMap<String, Player>,
+    repo: GameLog<T>,
+    players: HashMap<PlayerId, Player>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Player {
     player_uuid: PlayerId,
     password_hash: String,
@@ -76,6 +77,8 @@ pub fn verify_password(password: &str, hash: &str) {
 
 impl<T: Game> WorkerGame<T> {
     pub fn new(state: State, env: Env) -> Self {
+        console_error_panic_hook::set_once();
+        init_tracing_once();
         // TODO: Load game state and players if log exists
         let mut seed = [0; 32];
         getrandom::getrandom(&mut seed).unwrap();
@@ -84,7 +87,7 @@ impl<T: Game> WorkerGame<T> {
         let data = Data {
             state,
             server: GameServer::new(room),
-            log: GameLog::new(T::Config::default(), seed),
+            repo: GameLog::new(T::Config::default(), seed),
             players: HashMap::new(),
         };
         Self {
@@ -116,7 +119,7 @@ impl<T: Game> WorkerGame<T> {
                     .hash_password(body.player_password.as_bytes(), &salt)
                     .expect("Hashing failed");
                 data.players.insert(
-                    body.player_id,
+                    PlayerId(body.player_id.parse().unwrap()),
                     Player {
                         player_uuid: PlayerId(Uuid::parse_str(&body.player_uuid).unwrap()),
                         password_hash: hash.serialize().as_str().to_string(),
@@ -131,24 +134,37 @@ impl<T: Game> WorkerGame<T> {
                     .players
                     .iter()
                     .map(|(k, v)| PlayerResponse {
-                        player_id: k.clone(),
+                        player_id: k.0.to_string(),
                         player_uuid: v.player_uuid.0.to_string(),
                     })
                     .collect();
                 Response::from_json(&PlayersResponse { players })
             })
-            .on_async("/play", |mut req, ctx| async move {
-                let body: PlayRequest = req.json().await?;
-                let client_id = ClientId::gen();
-                let data = ctx.data.lock().await;
-                let player = data.players.get(&body.player_id).unwrap();
+            .on_async("/play", |req, ctx| async move {
+                let body: PlayRequest =
+                    handle_error(serde_urlencoded::from_str(req.url()?.query().unwrap()))?;
+                let mut data = ctx.data.lock().await;
+                let player = data
+                    .players
+                    .entry(PlayerId(body.player_id))
+                    .or_insert_with(|| Player {
+                        player_uuid: PlayerId(body.player_id),
+                        password_hash: hash_password(&body.player_password),
+                    })
+                    .clone();
+                drop(data);
                 let player_id = player.player_uuid;
                 verify_password(&body.player_password, &player.password_hash);
-                websocket(ctx.data.clone(), User::Player(player_id), client_id).await
+                websocket(
+                    ctx.data.clone(),
+                    User::Player(player_id),
+                    ClientId(body.client_id),
+                )
+                .await
             })
-            .on_async("/conduct", |mut req, ctx| async move {
-                let body: ConductRequest = req.json().await?;
-                let client_id = ClientId::gen();
+            .on_async("/conduct", |req, ctx| async move {
+                let body: ConductRequest =
+                    serde_urlencoded::from_str(req.url()?.query().unwrap()).expect("invalid query");
                 let data = ctx.data.lock().await;
                 let conductor_hash = data
                     .state
@@ -156,7 +172,12 @@ impl<T: Game> WorkerGame<T> {
                     .get::<String>(CONDUCTOR_HASH_KV_KEY)
                     .await?;
                 verify_password(&body.conductor_password, &conductor_hash);
-                websocket(ctx.data.clone(), User::Conductor, client_id).await
+                websocket(
+                    ctx.data.clone(),
+                    User::Conductor,
+                    ClientId(body.client_id.parse().unwrap()),
+                )
+                .await
             })
             .run(req, self.env.clone().into())
             .await
@@ -170,11 +191,11 @@ async fn websocket<T: Game>(
 ) -> Result<Response> {
     let WebSocketPair { client, server } = WebSocketPair::new()?;
 
-    let game_server = state.clone();
+    server.accept()?;
 
     match user {
         User::Conductor => {
-            game_server.lock().await.server.add_conductor_client(
+            state.lock().await.server.add_conductor_client(
                 client_id,
                 WebSocketConnection {
                     websocket: server.clone(),
@@ -182,7 +203,7 @@ async fn websocket<T: Game>(
             );
         }
         User::Player(player_id) => {
-            game_server.lock().await.server.add_player_client(
+            state.lock().await.server.add_player_client(
                 player_id,
                 client_id,
                 WebSocketConnection {
@@ -191,8 +212,6 @@ async fn websocket<T: Game>(
             );
         }
     }
-
-    server.accept()?;
 
     wasm_bindgen_futures::spawn_local(async move {
         let mut stream = server.events().unwrap();
@@ -203,16 +222,14 @@ async fn websocket<T: Game>(
             match event {
                 WebsocketEvent::Message(msg) => match user {
                     User::Conductor => {
-                        let mut data = state.lock().await;
                         let conductor_command = msg
                             .json::<ClientToServerMessage<T::ConductorCommand>>()
                             .unwrap();
+                        let mut data = state.lock().await;
                         let data = data.deref_mut();
-                        data.server.handle_conductor_command(
-                            &mut data.log,
-                            client_id,
-                            conductor_command,
-                        );
+                        let server = &mut data.server;
+                        let repo = &mut data.repo;
+                        server.handle_conductor_command(repo, client_id, conductor_command);
                     }
                     User::Player(player_id) => {
                         let mut data = state.lock().await;
@@ -221,7 +238,7 @@ async fn websocket<T: Game>(
                             .unwrap();
                         let data = data.deref_mut();
                         data.server.handle_player_command(
-                            &mut data.log,
+                            &mut data.repo,
                             client_id,
                             player_id,
                             player_command,

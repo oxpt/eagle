@@ -1,6 +1,7 @@
 import { Dialog, Transition } from "@headlessui/react";
 import { KeyIcon } from "@heroicons/react/24/solid";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useCallback, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 
 const enterUUID = {
   title: "個人識別番号入力",
@@ -21,7 +22,11 @@ export interface EnterUUIDDialogProps {
 export default function EnterUUID(props: EnterUUIDDialogProps) {
   const { onClose, open } = props;
   const [noUUID, setNoUUID] = useState(false);
+  const { register, handleSubmit } = useForm<{ uuid: string }>();
 
+  const onSubmit = handleSubmit(({ uuid }) => {
+    // TODO: send uuid to server
+  });
   const handleClose = () => {
     onClose();
   };
@@ -122,11 +127,13 @@ export default function EnterUUID(props: EnterUUIDDialogProps) {
                     </div>
                   </div>
                 </form>
-                <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                <form
+                  className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3"
+                  onSubmit={onSubmit}
+                >
                   <button
-                    type="button"
+                    type="submit"
                     className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-start-2"
-                    onClick={handleClose}
                   >
                     {enterUUID.submit}
                   </button>
@@ -138,7 +145,7 @@ export default function EnterUUID(props: EnterUUIDDialogProps) {
                   >
                     {enterUUID.cancel}
                   </button>
-                </div>
+                </form>
               </Dialog.Panel>
             </Transition.Child>
           </div>

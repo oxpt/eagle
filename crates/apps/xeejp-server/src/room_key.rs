@@ -1,12 +1,12 @@
 use std::collections::{hash_map::Entry, HashMap};
 
+use serde::{Deserialize, Serialize};
 use worker::*;
-use xeejp::types::{CreateRoomRequest, Room, Rooms, RoomsResponse};
 
 use crate::tracing::init_tracing_once;
 
 #[durable_object]
-pub struct User {
+pub struct RoomKey {
     #[allow(dead_code)]
     state: State,
     env: Env,
@@ -14,8 +14,24 @@ pub struct User {
 
 const ROOMS_STORAGE_KEY: &str = "ROOMS";
 
+#[derive(Serialize, Deserialize)]
+pub struct RegisterRoomRequest {
+    pub room_key: String,
+    pub user_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RoomRegistration {
+    pub user_id: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct Rooms {
+    registrations: HashMap<String, RoomRegistration>,
+}
+
 #[durable_object]
-impl DurableObject for User {
+impl DurableObject for RoomKey {
     fn new(state: State, env: Env) -> Self {
         console_error_panic_hook::set_once();
         init_tracing_once();
@@ -25,48 +41,41 @@ impl DurableObject for User {
     async fn fetch(&mut self, req: Request) -> worker::Result<Response> {
         Router::with_data(&self)
             .post_async("/rooms", |mut req, ctx| async move {
-                console_log!("POST /rooms");
-                let body = req.json::<CreateRoomRequest>().await?;
+                let body = req.json::<RegisterRoomRequest>().await?;
                 let mut rooms: Rooms = ctx
                     .data
                     .state
                     .storage()
                     .get(ROOMS_STORAGE_KEY)
                     .await
-                    .unwrap_or_else(|_| Rooms(HashMap::new()));
-                if let Entry::Vacant(e) = rooms.0.entry(body.room_key) {
-                    e.insert(Room {
-                        name: body.room_name,
+                    .unwrap_or_default();
+                if let Entry::Vacant(e) = rooms.registrations.entry(body.room_key) {
+                    e.insert(RoomRegistration {
+                        user_id: body.user_id,
                     });
                     ctx.data
                         .state
                         .storage()
                         .put(ROOMS_STORAGE_KEY, rooms)
                         .await?;
-                    Response::ok("Room created").map(|resp| resp.with_status(201))
+                    Response::ok("Room registered").map(|resp| resp.with_status(201))
                 } else {
-                    Response::error("Room already exists", 409)
+                    Response::error("Room already registered", 409)
                 }
             })
-            .get_async("/rooms", |_req, ctx| async move {
-                console_log!("GET /rooms");
+            .get_async("/rooms/:room_key", |_req, ctx| async move {
+                let room_key = ctx.param("room_key").unwrap();
                 let rooms: Rooms = ctx
                     .data
                     .state
                     .storage()
                     .get(ROOMS_STORAGE_KEY)
                     .await
-                    .unwrap_or_else(|_| Rooms(HashMap::new()));
-                let response = RoomsResponse { rooms };
-                Response::ok(serde_json::to_string(&response).unwrap())
-            })
-            .get_async("/rooms/:room_key", |_req, ctx| async move {
-                let room_key = ctx.param("room_key").unwrap();
-                let rooms: Rooms = ctx.data.state.storage().get(ROOMS_STORAGE_KEY).await?;
-                if rooms.0.contains_key(room_key) {
-                    Response::ok("Room exists")
+                    .unwrap_or_default();
+                if let Some(registration) = rooms.registrations.get(room_key) {
+                    Response::from_json(&registration)
                 } else {
-                    Response::error("Room not found", 404)
+                    Response::error("Room not registered", 404)
                 }
             })
             .run(req, self.env.clone().into())

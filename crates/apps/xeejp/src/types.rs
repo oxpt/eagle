@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
+use uuid::Uuid;
 
 #[derive(Tsify, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -29,13 +30,15 @@ pub struct Room {
 #[derive(Tsify, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConductRequest {
+    pub client_id: String,
     pub conductor_password: String,
 }
 
 #[derive(Tsify, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayRequest {
-    pub player_id: String,
+    pub client_id: Uuid,
+    pub player_id: Uuid,
     pub player_password: String,
 }
 

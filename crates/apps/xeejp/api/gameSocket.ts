@@ -2,20 +2,24 @@ import { eagleWebsocketEndpoint } from "@/data/config";
 import { PlayerId, UserId } from "@/data/user";
 import {
   ClientToServerMessage,
-  PlayRequest,
   ServerToClientMessage,
+  UltimatumConductor,
+  UltimatumConductorCommand,
   UltimatumPlayer,
   UltimatumPlayerCommand,
 } from "@/pkg/xeejp";
-import { atomWithStorage, useReducerAtom } from "jotai/utils";
-import { useState } from "react";
+import { atomFamily, atomWithStorage, useReducerAtom } from "jotai/utils";
+import { useCallback, useEffect, useState } from "react";
 import useWebSocket from "react-use-websocket";
-import { QueryParams } from "react-use-websocket/dist/lib/types";
+import { v4 as uuidv4 } from "uuid";
+import deepEqual from "fast-deep-equal";
+import { Atom, PrimitiveAtom, WritableAtom } from "jotai";
 
 export type RoomRole = "conductor" | "player";
 export type ConnectionStatus = "connecting" | "open" | "closing" | "closed";
 
-const toPath = (role: RoomRole) => role === "conductor" ? "conduct" : "play";
+export const clientIdAtom = atomWithStorage<string>("clientId", uuidv4());
+
 const connectionStatus = (status: number): ConnectionStatus | undefined => {
   switch (status) {
     case 0:
@@ -29,7 +33,7 @@ const connectionStatus = (status: number): ConnectionStatus | undefined => {
   }
 };
 
-export type ChannelId = string;
+export type ClientId = string;
 
 type State<C> = {
   ack: number | null;
@@ -51,30 +55,52 @@ function reducer<C>(state: State<C>, action: Action<C>): State<C> {
 type RoleOption = {
   role: "play";
   queryParams: {
+    clientId: ClientId;
     playerId: PlayerId;
     playerPassword: string;
   };
 } | {
   role: "conduct";
   queryParams: {
+    clientId: ClientId;
     conductorPassword: string;
   };
 };
 
+function clientStateAtom<C>(
+  { gameName, roomKey, clientId, role }: {
+    gameName: string;
+    roomKey: string;
+    clientId: ClientId;
+    role: RoomRole;
+  },
+) {
+  return atomWithStorage<State<C>>(
+    `gameName:${gameName},roomKey:${roomKey},clientId:${clientId},role:${role}`,
+    { ack: null, commands: [] },
+  );
+}
+
 function useGame<C, V>(
-  conductor: UserId,
+  history: State<C>,
+  dispatch: (action: Action<C>) => void,
   roomKey: String,
-  channelId: ChannelId,
   roleOption: RoleOption,
 ) {
   let [view, setView] = useState<V | null>(null);
-  const channelStateAtom = atomWithStorage<State<C>>(
-    `channelState/${conductor}/${roomKey}/${channelId}`,
-    { ack: null, commands: [] },
-  );
-  const [history, dispatch] = useReducerAtom(channelStateAtom, reducer<C>);
+  const onMessage = useCallback((event: WebSocketEventMap["message"]) => {
+    let message = JSON.parse(event.data) as ServerToClientMessage<V>;
+    if (message === "Pong") {
+      return;
+    }
+    if ("Ack" in message) {
+      dispatch({ type: "Ack", index: message.Ack.index });
+    } else if ("Notify" in message) {
+      setView(message.Notify.view);
+    }
+  }, [dispatch, setView]);
   const socket = useWebSocket(
-    `${eagleWebsocketEndpoint}/users/${conductor}/rooms/${roomKey}/channels/${channelId}/${roleOption.role}`,
+    `${eagleWebsocketEndpoint}/rooms/${roomKey}/${roleOption.role}`,
     {
       share: true, // share a single socket connection with all components using this hook
       retryOnError: true,
@@ -83,24 +109,18 @@ function useGame<C, V>(
       // 1, 2, 4, ..., 10 seconds
       reconnectInterval: (attemptNumber) =>
         Math.min(Math.pow(2, attemptNumber) * 1000, 10000),
-
       queryParams: roleOption.queryParams,
-      onOpen: (_event) => {
-        // TODO: resend (all) history
+      onOpen: (event) => {
+        // TODO: resend all commands on open or reconnect
       },
-      onMessage: (event) => {
-        const message = event.data as ServerToClientMessage<V>;
-        if (message === "Pong") {
-          return;
-        }
-        if ("Ack" in message) {
-          dispatch({ type: "Ack", index: message.Ack.index });
-        } else if ("Notify" in message) {
-          setView(message.Notify.view);
-        }
+      onClose: (event) => {
       },
+      onError: (event) => {
+      },
+      onMessage,
     },
   );
+
   return {
     state: view,
     connectionStatus: connectionStatus(socket.readyState),
@@ -114,31 +134,57 @@ function useGame<C, V>(
   };
 }
 
+const ultimatumPlayer = atomFamily(
+  (param: { roomKey: string; clientId: string }) =>
+    clientStateAtom<UltimatumPlayerCommand>({
+      gameName: "ultimatum",
+      role: "player",
+      ...param,
+    }),
+  deepEqual,
+);
+
+const ultimatumConductor = atomFamily(
+  (param: { roomKey: string; clientId: string }) =>
+    clientStateAtom<UltimatumConductorCommand>({
+      gameName: "ultimatum",
+      role: "player",
+      ...param,
+    }),
+  deepEqual,
+);
+
 export const useUltimatumPlayer = (
-  conductor: UserId,
-  roomKey: String,
-  channelId: ChannelId,
+  roomKey: string,
+  clientId: ClientId,
   playerId: PlayerId,
   playerPassword: string,
 ) => {
+  const [history, dispatch] = useReducerAtom(
+    ultimatumPlayer({ roomKey, clientId }),
+    reducer<UltimatumPlayerCommand>,
+  );
   return useGame<UltimatumPlayerCommand, UltimatumPlayer>(
-    conductor,
+    history,
+    dispatch,
     roomKey,
-    channelId,
-    { role: "play", queryParams: { playerId, playerPassword } },
+    { role: "play", queryParams: { clientId, playerId, playerPassword } },
   );
 };
 
 export const useUltimatumConductor = (
-  conductor: UserId,
-  roomKey: String,
-  channelId: ChannelId,
+  roomKey: string,
+  clientId: ClientId,
   conductorPassword: string,
 ) => {
-  return useGame<UltimatumPlayerCommand, UltimatumPlayer>(
-    conductor,
+  const [history, dispatch] = useReducerAtom(
+    ultimatumConductor({ roomKey, clientId }),
+    reducer<UltimatumConductorCommand>,
+  );
+  return useGame<UltimatumConductorCommand, UltimatumConductor>(
+    history,
+    dispatch,
     roomKey,
-    channelId,
-    { role: "conduct", queryParams: { conductorPassword } },
+    { role: "conduct", queryParams: { clientId, conductorPassword } },
   );
 };

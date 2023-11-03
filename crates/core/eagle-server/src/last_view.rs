@@ -22,6 +22,14 @@ impl<T: Game> LastViews<T> {
         Default::default()
     }
 
+    pub fn get_conductor_view(&mut self) -> Option<&T::ConductorView> {
+        self.conductor.as_ref()
+    }
+
+    pub fn get_player_view(&mut self, player_id: PlayerId) -> Option<&T::PlayerView> {
+        self.players.get(&player_id)
+    }
+
     pub fn update_conductor_view(&mut self, view: &T::ConductorView) -> UpdateResult {
         if self.conductor.as_ref() != Some(view) {
             self.conductor = Some(view.clone());

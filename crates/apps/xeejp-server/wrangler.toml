@@ -8,4 +8,9 @@ command = "cargo install -q worker-build && worker-build --release"
 bindings = [
   { name = "ULTIMATUM2023", class_name = "Ultimatum2023" },
   { name = "USER", class_name = "User" },
+  { name = "ROOM_KEY", class_name = "RoomKey" },
 ]
+
+[[migrations]]
+tag = "v1"                                         # Should be unique for each entry
+new_classes = ["Ultimatum2023", "User", "RoomKey"]

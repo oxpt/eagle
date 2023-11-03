@@ -1,17 +1,33 @@
 pub mod game;
 pub mod repository;
+pub mod room_key;
+mod tracing;
 mod types;
 pub mod ultimatum;
 pub mod user;
 mod utils;
 
-use worker::{wasm_bindgen::JsValue, *};
-use xeejp::types::{AddPlayerRequest, CreateRoomRequest};
+use tracing::init_tracing_once;
+use worker::*;
+use xeejp::types::CreateRoomRequest;
 
-use crate::{types::Start, utils::forward, utils::get, utils::post};
+use crate::{
+    room_key::{RegisterRoomRequest, RoomRegistration},
+    types::Start,
+    utils::forward,
+    utils::get,
+    utils::post,
+};
 
 const GAME_OBJECT_NS: &str = "ULTIMATUM2023";
 const USER_OBJECT_NS: &str = "USER";
+const ROOM_KEY_OBJECT_NS: &str = "ROOM_KEY";
+
+#[event(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+    init_tracing_once();
+}
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
@@ -51,21 +67,32 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             .id_from_name(user_id)?
             .get_stub()
     }
-    async fn assert_room_exists(
+    fn room_key_object(ctx: &RouteContext<()>) -> worker::Result<worker::Stub> {
+        ctx.durable_object(ROOM_KEY_OBJECT_NS)?
+            .id_from_name("ALL")?
+            .get_stub()
+    }
+    async fn get_room_object(
         ctx: &RouteContext<()>,
-        user_id: &str,
         room_key: &str,
-    ) -> worker::Result<bool> {
-        Ok(user_object(ctx, user_id)?
+    ) -> worker::Result<worker::Stub> {
+        let registration: RoomRegistration = room_key_object(ctx)?
             .fetch_with_request(get(&format!("/rooms/{}", room_key))?)
             .await?
-            .status_code()
-            == 200)
+            .json()
+            .await?;
+        assert!(
+            user_object(ctx, &registration.user_id)?
+                .fetch_with_request(get(&format!("/rooms/{}", room_key))?)
+                .await?
+                .status_code()
+                == 200
+        );
+        room_object(&ctx, &registration.user_id, room_key)
     }
 
     let res = router
         .post_async("/users/:user_id/rooms", |mut req, ctx| async move {
-            console_log!("POST /users/:user_id/rooms");
             // FIXME: Authenticate user
 
             let user_id = ctx.param("user_id").unwrap();
@@ -76,6 +103,16 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 .await?;
 
             if res.status_code() == 201 {
+                room_key_object(&ctx)?
+                    .fetch_with_request(post(
+                        "/rooms",
+                        req.headers().clone(),
+                        &RegisterRoomRequest {
+                            room_key: body.room_key.clone(),
+                            user_id: user_id.to_string(),
+                        },
+                    )?)
+                    .await?;
                 room_object(&ctx, user_id, &body.room_key)?
                     .fetch_with_request(post(
                         "/start",
@@ -89,8 +126,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 Ok(res)
             }
         })
-        .get_async("/users/:user_id/rooms", |req, ctx| async move {
-            console_log!("GET /users/:user_id/rooms");
+        .get_async("/users/:user_id/rooms", |_req, ctx| async move {
             // FIXME: Authenticate user
             let user_id = ctx.param("user_id").unwrap();
             let res = user_object(&ctx, user_id)?
@@ -112,7 +148,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         )
         .get_async(
             "/users/:user_id/rooms/:room_key/players",
-            |req, ctx| async move {
+            |_req, ctx| async move {
                 let user_id = ctx.param("user_id").unwrap();
                 // FIXME: Authenticate user
 
@@ -122,33 +158,20 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                     .await
             },
         )
-        .on_async(
-            "/users/:user_id/rooms/:room_key/conduct",
-            |req, ctx| async move {
-                let user_id = ctx.param("user_id").unwrap();
-                let room_key = ctx.param("room_key").unwrap();
-                if !assert_room_exists(&ctx, user_id, room_key).await? {
-                    return Response::error("Room not found", 404);
-                }
-                room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(forward(req, "/conduct")?)
-                    .await
-            },
-        )
-        .on_async(
-            "/users/:user_id/rooms/:room_key/play",
-            |req, ctx| async move {
-                let user_id = ctx.param("user_id").unwrap();
-                let room_key = ctx.param("room_key").unwrap();
-                if !assert_room_exists(&ctx, user_id, room_key).await? {
-                    return Response::error("Room not found", 404);
-                }
-
-                room_object(&ctx, user_id, room_key)?
-                    .fetch_with_request(forward(req, "/play")?)
-                    .await
-            },
-        )
+        .on_async("/rooms/:room_key/conduct", |req, ctx| async move {
+            let room_key = ctx.param("room_key").unwrap();
+            get_room_object(&ctx, room_key)
+                .await?
+                .fetch_with_request(forward(req, "/conduct")?)
+                .await
+        })
+        .on_async("/rooms/:room_key/play", |req, ctx| async move {
+            let room_key = ctx.param("room_key").unwrap();
+            get_room_object(&ctx, room_key)
+                .await?
+                .fetch_with_request(forward(req, "/play")?)
+                .await
+        })
         .run(req, env)
         .await;
     res?.with_cors(&cors)

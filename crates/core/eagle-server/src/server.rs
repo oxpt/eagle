@@ -8,7 +8,7 @@ use eagle_types::{
 
 use crate::{
     channel::Channel,
-    clients::Clients,
+    clients::{Client, Clients},
     effect_outcomes::EffectOutcomes,
     last_view::{LastViews, UpdateResult},
     repository::{CommandLogEntry, Repository, RepositoryLogEntry},
@@ -30,12 +30,26 @@ impl<T: Game, C: Channel> GameServer<T, C> {
     }
 
     pub fn add_conductor_client(&mut self, client_id: ClientId, channel: C) {
-        self.clients.add_client(User::Conductor, client_id, channel);
+        let mut client = Client::new(client_id, channel);
+        if let Some(view) = self.last_views.get_conductor_view() {
+            client.send_message(ServerToClientMessage::Notify { view: view.clone() })
+        } else {
+            let view = self.room.render_conductor();
+            let _ = self.last_views.update_conductor_view(&view);
+            client.send_message(ServerToClientMessage::Notify { view: view.clone() })
+        }
+        self.clients.add_client(User::Conductor, client);
     }
 
     pub fn add_player_client(&mut self, player_id: PlayerId, client_id: ClientId, channel: C) {
-        self.clients
-            .add_client(User::Player(player_id), client_id, channel);
+        let mut client = Client::new(client_id, channel);
+        if let Some(view) = self.last_views.get_player_view(player_id) {
+            client.send_message(ServerToClientMessage::Notify { view: view.clone() })
+        } else {
+            let view = self.room.render_player(player_id);
+            let _ = self.last_views.update_player_view(player_id, &view);
+            client.send_message(ServerToClientMessage::Notify { view: view.clone() })
+        }
     }
 
     pub fn remove_client(&mut self, user: User, client_id: ClientId) {
@@ -45,25 +59,13 @@ impl<T: Game, C: Channel> GameServer<T, C> {
     fn notify_view(&mut self) {
         let conductor_view = self.room.render_conductor();
         if self.last_views.update_conductor_view(&conductor_view) == UpdateResult::Updated {
-            for client in self.clients.conductor_clients() {
-                if let Err(_err) = client.send_message(ServerToClientMessage::Notify {
-                    view: conductor_view.clone(),
-                }) {
-                    // TODO: log err
-                }
-            }
+            self.clients.notify_to_conductor::<T>(&conductor_view);
         }
-        for (player_id, clients) in self.clients.players() {
+        for player_id in self.clients.available_players().collect::<Vec<_>>() {
             let player_view = self.room.render_player(player_id);
             if self.last_views.update_player_view(player_id, &player_view) == UpdateResult::Updated
             {
-                for client in clients {
-                    if let Err(_err) = client.send_message(ServerToClientMessage::Notify {
-                        view: player_view.clone(),
-                    }) {
-                        // TODO: log err
-                    }
-                }
+                self.clients.notify_to_player::<T>(player_id, &player_view);
             }
         }
     }
@@ -95,12 +97,9 @@ impl<T: Game, C: Channel> GameServer<T, C> {
                         effect_outcomes,
                     },
                 });
-                if let Some(client) = self.clients.get_client(User::Conductor, client_id) {
-                    if let Err(_err) = client
-                        .send_message::<T::ConductorCommand>(ServerToClientMessage::Ack { index })
-                    {
-                        // TODO: log err
-                    }
+                if let Some(client) = self.clients.get_client_mut(User::Conductor, client_id) {
+                    client
+                        .send_message::<T::ConductorCommand>(ServerToClientMessage::Ack { index });
                 }
                 self.notify_view()
             }
@@ -138,12 +137,11 @@ impl<T: Game, C: Channel> GameServer<T, C> {
                         effect_outcomes,
                     },
                 });
-                if let Some(client) = self.clients.get_client(User::Player(player_id), client_id) {
-                    if let Err(_err) = client
-                        .send_message::<T::PlayerCommand>(ServerToClientMessage::Ack { index })
-                    {
-                        // TODO: log err
-                    }
+                if let Some(client) = self
+                    .clients
+                    .get_client_mut(User::Player(player_id), client_id)
+                {
+                    client.send_message::<T::PlayerCommand>(ServerToClientMessage::Ack { index });
                 }
                 self.notify_view()
             }
