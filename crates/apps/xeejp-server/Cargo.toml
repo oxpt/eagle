@@ -26,3 +26,4 @@ serde_urlencoded = "0.7.1"
 console_error_panic_hook = "0.1"
 tracing-subscriber = { workspace = true, features = ["json", "time"] }
 tracing-web = "0.1"
+time = { version = "0.3", features = ['wasm-bindgen'] }
