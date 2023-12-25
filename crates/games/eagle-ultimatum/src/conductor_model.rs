@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
-use crate::types::{Proposal, Response};
+use crate::{
+    phase::Phase,
+    types::{Proposal, Response},
+};
 
-#[derive(Tsify, Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Tsify, Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UltimatumConductor {
-    proposal: Option<Proposal>,
-    proposed: bool,
-    response: Option<Response>,
-    errors: Vec<String>,
+    pub phase: Phase,
+    pub proposal: Option<Proposal>,
+    pub response: Option<Response>,
+    pub errors: Vec<String>,
 }
 
 impl UltimatumConductor {
